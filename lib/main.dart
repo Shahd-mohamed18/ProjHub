@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:onboard/screens/login_screen.dart';
 import 'package:onboard/screens/onboarding_screen.dart';
+import 'package:onboard/screens/varification_email.dart';
+import 'package:onboard/screens/welcome_screen.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -13,10 +20,11 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Onboarding Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: const OnboardingScreen(),
+      theme: ThemeData(primarySwatch: Colors.blue),
+      // home: const OnboardingScreen(),
+      home: WelcomeScreen(),
+      // home: LoginScreen(),
+      // home: VarificationEmail(),
     );
   }
 }

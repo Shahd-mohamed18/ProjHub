@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "473589416044",
+    "project_id": "projhup-e1544",
+    "storage_bucket": "projhup-e1544.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:473589416044:android:3f04481e19118a0634d849",
+        "android_client_info": {
+          "package_name": "com.example.onboard"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC5O1_I-q2TrHc3Gj9WmFXi2nKonLbCfic"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
