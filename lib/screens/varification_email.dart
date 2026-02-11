@@ -2,7 +2,8 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:onboard/data/firebaseFunction/firebase_auth_function.dart';
-import 'package:onboard/screens/home_screen.dart';
+
+import 'package:onboard/screens/main_layout_navbar.dart';
 
 class VarificationEmail extends StatefulWidget {
   const VarificationEmail({super.key});
@@ -41,7 +42,7 @@ class _VarificationState extends State<VarificationEmail> {
       time?.cancel();
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => HomeScreen()),
+        MaterialPageRoute(builder: (context) => MainLayoutNavbar()),
       );
     }
   }

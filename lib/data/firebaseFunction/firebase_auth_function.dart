@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:onboard/screens/home_screen.dart';
+import 'package:onboard/screens/main_layout_navbar.dart';
 import 'package:onboard/screens/varification_email.dart';
 // import 'package:google_sign_in/google_sign_in.dart';
 
@@ -150,7 +151,7 @@ class FirebaseAuthFunction {
       if (credential.user != null && credential.user!.emailVerified) {
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => HomeScreen()),
+          MaterialPageRoute(builder: (_) => MainLayoutNavbar()),
           (route) => false,
         );
         showSnackBar(context, 'Login Success!');

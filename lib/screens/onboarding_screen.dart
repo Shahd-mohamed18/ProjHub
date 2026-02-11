@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:onboard/screens/main_layout_navbar.dart';
 import 'package:onboard/screens/welcome_screen.dart';
 import 'home_screen.dart';
 
@@ -52,7 +53,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       backgroundColor: Colors.white,
       body: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [Colors.white,Colors.white,Color(0xff7E9FCA)],begin: Alignment.topCenter,end: Alignment.bottomCenter),
+          gradient: LinearGradient(
+            colors: [Colors.white, Colors.white, Color(0xff7E9FCA)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
         ),
         child: SafeArea(
           child: Column(
@@ -63,7 +68,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   onPressed: () {
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (context) => const HomeScreen()),
+                      MaterialPageRoute(
+                        builder: (context) => const MainLayoutNavbar(),
+                      ),
                     );
                   },
                   child: const Text(
@@ -93,10 +100,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             width: 169,
                           ),
                           const SizedBox(height: 40),
-                         
+
                           SizedBox(
                             width: 183,
-                            height: 84, 
+                            height: 84,
                             child: Text(
                               onboardingData[index]["title"]!,
                               style: const TextStyle(
@@ -112,7 +119,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                        
+
                           SizedBox(
                             width: 250,
                             height: 56,
@@ -125,7 +132,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 height: 1,
                               ),
                               textAlign: TextAlign.center,
-                              maxLines: index == 3 ?4 : 3,
+                              maxLines: index == 3 ? 4 : 3,
                               overflow: TextOverflow.visible,
                               softWrap: true,
                             ),
@@ -168,7 +175,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   onPressed: nextPage,
                   child: Text(
                     currentPage == onboardingData.length - 1 ? "START" : "NEXT",
-                    style: const TextStyle(color: Colors.white, fontSize: 32,fontWeight: FontWeight.w500,),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 32,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ),
