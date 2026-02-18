@@ -8,6 +8,9 @@ import 'package:onboard/screens/varification_email.dart';
 import 'package:onboard/screens/welcome_screen.dart';
 import 'package:onboard/screens/sign_up_screen.dart'; 
 import 'package:onboard/screens/forget_password_screen.dart'; 
+import 'package:onboard/screens/community_screen.dart';
+import 'package:onboard/screens/comments_screen.dart';
+import 'package:onboard/screens/create_post_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
@@ -36,6 +39,7 @@ class MyApp extends StatelessWidget {
         '/main': (context) => const MainLayoutNavbar(),
         '/profile': (context) => const ProfileScreen(),
         '/forgetpassword': (context) => const ForgetPasswordScreen(),
+        '/community': (context) => const CommunityScreen(),
       },
     );
   }
