@@ -11,6 +11,7 @@ class UserModel {
   final String track;
   final String? photoUrl;
   final String? bio;
+  
 
   UserModel({
     required this.uid,
