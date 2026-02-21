@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:onboard/screens/home_screen.dart';
 import 'package:onboard/screens/main_layout_navbar.dart';
 import 'package:onboard/screens/varification_email.dart';
+import 'package:onboard/models/user_model.dart';
 // import 'package:google_sign_in/google_sign_in.dart';
 
 class FirebaseAuthFunction {
@@ -33,19 +34,23 @@ class FirebaseAuthFunction {
 
       print('User created: ${credential.user!.uid}');
 
+      // ✅ تعديل هنا: إضافة كل البيانات المطلوبة
       await FirebaseFirestore.instance
           .collection('users')
           .doc(credential.user!.uid)
           .set({
-            'uid': credential.user!.uid,
-            'email': email,
-            'fullName': fullName,
+        'uid': credential.user!.uid,
+        'email': email,
+        'fullName': fullName,
+        'university': university,
+        'faculty': faculty,
+        'track': track,
+        'bio': 'Hello, I am $fullName',
+        'photoUrl': photoUrl,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
 
-            'photoUrl': photoUrl,
-            'createdAt': FieldValue.serverTimestamp(),
-          });
-
-      print(' Data saved to Firestore');
+      print('✅ Data saved to Firestore');
 
       await credential.user?.sendEmailVerification();
 
@@ -77,7 +82,7 @@ class FirebaseAuthFunction {
 
       showSnackBar(context, errorMessage);
     } catch (e) {
-      print(' Error: $e');
+      print('❌ Error: $e');
       if (context.mounted) {
         Navigator.of(context, rootNavigator: true).pop();
       }
@@ -85,46 +90,7 @@ class FirebaseAuthFunction {
     }
   }
 
-  // static Future<void> LoginWithEmailAndPassword({
-  //   required String email,
-  //   required String password,
-  //   required BuildContext context,
-  // }) async {
-  //   try {
-  //     final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-  //       email: email,
-  //       password: password,
-  //     );
-  //     if (credential.user != null && credential.user!.emailVerified) {
-  //       Navigator.pushAndRemoveUntil(
-  //         context,
-  //         MaterialPageRoute(builder: (context) => HomeScreen()),
-  //         (route) => false,
-  //       );
-  //       showSnackBar(context, 'Login Success!');
-  //     } else {
-  //       Navigator.push(
-  //         context,
-  //         MaterialPageRoute(builder: (context) => VarificationEmail()),
-  //       );
-  //       await credential.user?.sendEmailVerification();
-  //       showSnackBar(context, 'Please verify your email first.');
-  //     }
-  //   } on FirebaseAuthException catch (e) {
-  //     if (e.code == 'user-not-found') {
-  //       showSnackBar(context, 'No user found for that email.');
-  //     } else if (e.code == 'wrong-password') {
-  //       showSnackBar(context, 'Wrong password provided for that user.');
-  //     } else if (e.code == 'invalid-credential') {
-  //       showSnackBar(context, 'Invalid email or password.');
-  //     } else {
-  //       showSnackBar(context, e.message ?? 'Authentication failed: ${e.code}');
-  //     }
-  //   } catch (e) {
-  //     showSnackBar(context, e.toString());
-  //   }
-  // }
-
+  // ================ LOGIN =================
   static Future<void> LoginWithEmailAndPassword({
     required String email,
     required String password,
@@ -178,6 +144,7 @@ class FirebaseAuthFunction {
     }
   }
 
+  // ================ RESET PASSWORD =================
   static Future<void> resetPassword({
     required String email,
     required BuildContext context,
@@ -202,78 +169,65 @@ class FirebaseAuthFunction {
     }
   }
 
-  // static Future<UserCredential?> signInWithGoogle({
-  //   required BuildContext context,
-  // }) async {
-  //   showDialog(
-  //     context: context,
-  //     barrierDismissible: false,
-  //     builder:
-  //         (_) => const Center(
-  //           child: CircularProgressIndicator(color: Color(0xFFDC2626)),
-  //         ),
-  //   );
+  // ================ GET CURRENT USER DATA =================
+  static Future<Map<String, dynamic>?> getCurrentUserData() async {
+    try {
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        DocumentSnapshot doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
 
-  //   try {
-  //     final GoogleSignIn googleSignIn = GoogleSignIn();
+        if (doc.exists) {
+          return doc.data() as Map<String, dynamic>;
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('❌ Error getting user data: $e');
+      return null;
+    }
+  }
 
-  //     await googleSignIn.signOut();
+  // ================ UPDATE PROFILE =================
+  static Future<bool> updateUserProfile({
+    required String name,
+    required String bio,
+    required String university,
+    String? imagePath,
+  }) async {
+    try {
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user == null) return false;
 
-  //     final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      Map<String, dynamic> updateData = {
+        'fullName': name,
+        'bio': bio,
+        'university': university,
+      };
 
-  //     if (googleUser == null) {
-  //       showSnackBar(context, 'Sign-in canceled');
-  //       return null;
-  //     }
+      // ✅ لو في صورة جديدة (مش URL ومش assets)
+      if (imagePath != null &&
+          imagePath.isNotEmpty &&
+          !imagePath.startsWith('http') &&
+          !imagePath.startsWith('assets')) {
+        updateData['photoUrl'] = imagePath;
+      }
 
-  //     final GoogleSignInAuthentication googleAuth =
-  //         await googleUser.authentication;
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update(updateData);
 
-  //     final credential = GoogleAuthProvider.credential(
-  //       accessToken: googleAuth.accessToken,
-  //       idToken: googleAuth.idToken,
-  //     );
+      return true;
+    } catch (e) {
+      debugPrint('❌ Error updating profile: $e');
+      return false;
+    }
+  }
 
-  //     final UserCredential userCredential = await FirebaseAuth.instance
-  //         .signInWithCredential(credential);
-
-  //     final user = userCredential.user;
-
-  //     if (user != null) {
-  //       final userDoc =
-  //           await FirebaseFirestore.instance
-  //               .collection('users')
-  //               .doc(user.uid)
-  //               .get();
-
-  //       if (!userDoc.exists) {
-  //         await FirebaseFirestore.instance
-  //             .collection('users')
-  //             .doc(user.uid)
-  //             .set({
-  //               'uid': user.uid,
-  //               'email': user.email ?? '',
-  //               'fullName': user.displayName ?? '',
-  //               'photoUrl': user.photoURL ?? '',
-  //               'createdAt': FieldValue.serverTimestamp(),
-  //             });
-  //       }
-
-  //       showSnackBar(context, 'Sign-in successful');
-  //       Navigator.pushAndRemoveUntil(
-  //         context,
-  //         MaterialPageRoute(builder: (context) => HomeScreen()),
-  //         (route) => false,
-  //       );
-  //     }
-
-  //     return userCredential;
-  //   } catch (e) {
-  //     showSnackBar(context, 'Error: $e');
-  //     return null;
-  //   }
-  // }
-
+  // ================ SHOW SNACKBAR =================
   static void showSnackBar(BuildContext context, String Message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

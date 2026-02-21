@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:onboard/screens/chat_screen.dart';
-import 'package:onboard/screens/comunity_screen.dart';
+import 'package:onboard/screens/community_screen.dart';
 import 'package:onboard/screens/home_screen.dart';
 import 'package:onboard/screens/profile_screen.dart';
 import 'package:onboard/screens/project_screen.dart';
@@ -14,10 +14,10 @@ class MainLayoutNavbar extends StatefulWidget {
 
 class _MainLayoutNavbarState extends State<MainLayoutNavbar> {
   int currentIndex = 0;
-  List<Widget> pages = [
+  List<Widget> pages = const [
     HomeScreen(),
     ProjectScreen(),
-    ComunityScreen(),
+    CommunityScreen(),
     ChatScreen(),
     ProfileScreen(),
   ];

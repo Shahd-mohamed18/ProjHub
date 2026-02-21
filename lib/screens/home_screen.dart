@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:onboard/screens/tasks_screen.dart'; // ✅ ضيفي الـ import
 import 'package:onboard/widgets/project_in_home_widget.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -45,7 +46,6 @@ class HomeScreen extends StatelessWidget {
                       ),
                       SizedBox(width: 150),
                       Icon(Icons.search, size: 30),
-
                       Icon(Icons.notification_add_outlined, size: 30),
                     ],
                   ),
@@ -53,6 +53,7 @@ class HomeScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
+                      // Chat Bot Button
                       Column(
                         children: [
                           Container(
@@ -67,15 +68,27 @@ class HomeScreen extends StatelessWidget {
                           Text('Chat Bot'),
                         ],
                       ),
+                      
+                      // Tasks Button - ✅ معدل مع GestureDetector
                       Column(
                         children: [
-                          Container(
-                            padding: EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Color(0xD6FF002A),
-                              borderRadius: BorderRadius.circular(10),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const TasksScreen(),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Color(0xD6FF002A),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Image.asset('assets/images/task_icon.png'),
                             ),
-                            child: Image.asset('assets/images/task_icon.png'),
                           ),
                           SizedBox(height: 5),
                           Text('Tasks'),
