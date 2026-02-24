@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:onboard/data/firebaseFunction/firebase_auth_function.dart';
 import 'package:onboard/validation/form_validation.dart';
-import 'package:onboard/widgets/custom_form_field_widget.dart';
+import 'package:onboard/widgets/Profile/custom_form_field_widget.dart';
 
 class ForgetPasswordScreen extends StatefulWidget {
   const ForgetPasswordScreen({super.key});

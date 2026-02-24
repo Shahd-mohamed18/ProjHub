@@ -1,6 +1,6 @@
 // lib/widgets/team/member_card.dart
 import 'package:flutter/material.dart';
-import 'package:onboard/models/team_member_model.dart';
+import 'package:onboard/models/TaskModels/team_member_model.dart';
 
 class MemberCard extends StatelessWidget {
   final TeamMemberModel member;

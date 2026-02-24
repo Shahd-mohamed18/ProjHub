@@ -1,7 +1,7 @@
 // lib/widgets/my_work/completed_task_card.dart
 import 'package:flutter/material.dart';
-import 'package:onboard/models/completed_task_model.dart';
-import 'package:onboard/models/feedback_model.dart'; 
+import 'package:onboard/models/TaskModels/completed_task_model.dart';
+import 'package:onboard/models/TaskModels/feedback_model.dart'; 
 import 'package:onboard/screens/TasksScreen/feedback_screen.dart'; 
 
 class CompletedTaskCard extends StatelessWidget {

@@ -1,6 +1,6 @@
 // lib/widgets/my_work/pending_task_card.dart
 import 'package:flutter/material.dart';
-import 'package:onboard/models/task_model.dart';
+import 'package:onboard/models/TaskModels/task_model.dart';
 
 class PendingTaskCard extends StatelessWidget {
   final TaskModel task;

@@ -1,7 +1,7 @@
 // lib/screens/team_screen.dart
 import 'package:flutter/material.dart';
-import 'package:onboard/models/team_member_model.dart';
-import 'package:onboard/widgets/my_work/member_card.dart';
+import 'package:onboard/models/TaskModels/team_member_model.dart';
+import 'package:onboard/widgets/tasks/my_work/member_card.dart';
 
 class TeamScreen extends StatelessWidget {
   const TeamScreen({super.key});

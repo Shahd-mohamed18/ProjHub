@@ -1,6 +1,6 @@
 // lib/screens/community_profile_tab.dart
 import 'package:flutter/material.dart';
-import 'package:onboard/models/post_model.dart';
+import 'package:onboard/models/CommnityModels/post_model.dart';
 import 'package:onboard/screens/CommunityScreen/comments_screen.dart';
 import 'package:onboard/widgets/community/post_card.dart';
 

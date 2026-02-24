@@ -1,7 +1,7 @@
 // lib/screens/submit_task_screen.dart
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:onboard/models/task_model.dart';
+import 'package:onboard/models/TaskModels/task_model.dart';
 
 class SubmitTaskScreen extends StatefulWidget {
   final TaskModel task;

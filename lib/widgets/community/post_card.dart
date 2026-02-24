@@ -1,6 +1,6 @@
 // lib/widgets/community/post_card.dart
 import 'package:flutter/material.dart';
-import 'package:onboard/models/post_model.dart';
+import 'package:onboard/models/CommnityModels/post_model.dart';
 
 class PostCard extends StatefulWidget {
   final PostModel post;

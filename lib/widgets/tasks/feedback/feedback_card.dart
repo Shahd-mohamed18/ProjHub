@@ -1,6 +1,6 @@
 // lib/widgets/feedback/feedback_card.dart
 import 'package:flutter/material.dart';
-import 'package:onboard/models/feedback_model.dart';
+import 'package:onboard/models/TaskModels/feedback_model.dart';
 
 class FeedbackCard extends StatelessWidget {
   final FeedbackModel feedback;

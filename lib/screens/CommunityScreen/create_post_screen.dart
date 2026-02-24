@@ -1,6 +1,6 @@
 // lib/screens/create_post_screen.dart
 import 'package:flutter/material.dart';
-import 'package:onboard/models/post_model.dart';
+import 'package:onboard/models/CommnityModels/post_model.dart';
 
 enum PostVisibility { public, myTeam, onlyMe }
 

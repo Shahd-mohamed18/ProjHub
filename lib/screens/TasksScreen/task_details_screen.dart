@@ -1,9 +1,9 @@
 // lib/screens/task_details_screen.dart
 import 'package:flutter/material.dart';
-import 'package:onboard/models/task_model.dart';
+import 'package:onboard/models/TaskModels/task_model.dart';
 import 'package:onboard/screens/TasksScreen/submit_task_screen.dart';
-import 'package:onboard/widgets/task_details/attachment_item.dart';
-import 'package:onboard/widgets/task_details/comment_section.dart';
+import 'package:onboard/widgets/tasks/task_details/attachment_item.dart';
+import 'package:onboard/widgets/tasks/task_details/comment_section.dart';
 
 class TaskDetailsScreen extends StatelessWidget {
   final TaskModel task;

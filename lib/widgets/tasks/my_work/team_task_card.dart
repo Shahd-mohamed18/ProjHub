@@ -1,6 +1,6 @@
 // lib/widgets/my_work/team_task_card.dart
 import 'package:flutter/material.dart';
-import 'package:onboard/models/team_task_model.dart';
+import 'package:onboard/models/TaskModels/team_task_model.dart';
 
 class TeamTaskCard extends StatelessWidget {
   final TeamTaskModel task;

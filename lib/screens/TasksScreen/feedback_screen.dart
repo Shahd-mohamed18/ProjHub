@@ -1,8 +1,8 @@
 // lib/screens/feedback_screen.dart
 import 'package:flutter/material.dart';
-import 'package:onboard/models/feedback_model.dart';
-import 'package:onboard/widgets/task_details/attachment_item.dart';
-import 'package:onboard/widgets/feedback/feedback_card.dart';
+import 'package:onboard/models/TaskModels/feedback_model.dart';
+import 'package:onboard/widgets/tasks/task_details/attachment_item.dart';
+import 'package:onboard/widgets/tasks/feedback/feedback_card.dart';
 
 class FeedbackScreen extends StatelessWidget {
   final String taskId;
