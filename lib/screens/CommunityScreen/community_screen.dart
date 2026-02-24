@@ -1,9 +1,9 @@
 // lib/screens/community_screen.dart
 import 'package:flutter/material.dart';
 import 'package:onboard/models/post_model.dart';
-import 'package:onboard/screens/community_profile_tab.dart';
-import 'package:onboard/screens/comments_screen.dart';
-import 'package:onboard/screens/create_post_screen.dart';
+import 'package:onboard/screens/CommunityScreen/community_profile_tab.dart';
+import 'package:onboard/screens/CommunityScreen/comments_screen.dart';
+import 'package:onboard/screens/CommunityScreen/create_post_screen.dart';
 import 'package:onboard/widgets/community/post_card.dart';
 import 'package:onboard/widgets/community/trending_header.dart';
 import 'package:onboard/widgets/community/whatsonyourmind.dart';

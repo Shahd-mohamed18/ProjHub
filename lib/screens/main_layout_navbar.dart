@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:onboard/screens/chat_screen.dart';
-import 'package:onboard/screens/community_screen.dart';
+import 'package:onboard/screens/CommunityScreen/community_screen.dart';
 import 'package:onboard/screens/home_screen.dart';
-import 'package:onboard/screens/profile_screen.dart';
+import 'package:onboard/screens/ProfileScreen/profile_screen.dart';
 import 'package:onboard/screens/project_screen.dart';
 
 class MainLayoutNavbar extends StatefulWidget {

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:onboard/data/firebaseFunction/firebase_auth_function.dart';
 import 'package:onboard/models/user_model.dart';
-import 'package:onboard/screens/edit_profile_screen.dart';
-import 'package:onboard/screens/settings_screen.dart';
-import 'package:onboard/screens/community_screen.dart';
+import 'package:onboard/screens/ProfileScreen/edit_profile_screen.dart';
+import 'package:onboard/screens/ProfileScreen/settings_screen.dart';
+import 'package:onboard/screens/CommunityScreen/community_screen.dart';
 import 'dart:io';
 
 // ✅ projects برة الـ class - مش محتاج يتعمل rebuild معاها

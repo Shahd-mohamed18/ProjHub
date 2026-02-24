@@ -24,7 +24,6 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
     if (result != null) {
       setState(() {
         for (final f in result.files) {
-          // تجنب إضافة نفس الملف مرتين
           if (!_selectedFiles.any((e) => e.name == f.name)) {
             _selectedFiles.add(f);
           }
@@ -48,12 +47,11 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
     setState(() => _isSubmitting = true);
 
     // TODO: استبدل بـ API call حقيقي
-    // مثال: await ApiService.submitTask(widget.task.id, _selectedFiles);
     await Future.delayed(const Duration(seconds: 1));
 
     setState(() => _isSubmitting = false);
 
-    if (mounted) Navigator.pop(context, true); // true = تم الـ submit
+    if (mounted) Navigator.pop(context, true);
   }
 
   @override
@@ -81,7 +79,6 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
                     const SizedBox(height: 24),
                     _buildUploadSection(),
                     const SizedBox(height: 12),
-                    // قائمة الملفات المختارة
                     ..._selectedFiles.asMap().entries.map(
                           (entry) => _buildFileChip(entry.key, entry.value),
                         ),
@@ -137,7 +134,7 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'From:${widget.task.from}',
+            'From: ${widget.task.from}',
             style: const TextStyle(fontSize: 15, color: Colors.grey, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 2),
@@ -195,7 +192,7 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
                         ),
                       ),
                       TextSpan(
-                        text: ':or drag & drop',
+                        text: ' or drag & drop',
                         style: TextStyle(color: Colors.black87, fontSize: 16),
                       ),
                     ],
@@ -248,7 +245,6 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
   Widget _buildActionButtons(BuildContext context) {
     return Row(
       children: [
-        // Cancel
         Expanded(
           child: SizedBox(
             height: 50,
@@ -269,7 +265,6 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
           ),
         ),
         const SizedBox(width: 16),
-        // Submit
         Expanded(
           child: SizedBox(
             height: 50,
