@@ -1,11 +1,15 @@
-// lib/screens/create_post_screen.dart
+// lib/screens/community/create_post_screen.dart
 import 'package:flutter/material.dart';
-import 'package:onboard/models/CommnityModels/post_model.dart';
-
-enum PostVisibility { public, myTeam, onlyMe }
+import 'package:onboard/models/CommunityModels/post_model.dart';
+import 'package:onboard/cubits/community/community_cubit.dart';
 
 class CreatePostScreen extends StatefulWidget {
-  const CreatePostScreen({super.key});
+  final CommunityCubit cubit;
+
+  const CreatePostScreen({
+    super.key,
+    required this.cubit,
+  });
 
   @override
   State<CreatePostScreen> createState() => _CreatePostScreenState();
@@ -16,9 +20,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   PostVisibility _visibility = PostVisibility.public;
   bool _isPosting = false;
 
-  // بيانات اليوزر الحالي - TODO: استبدل بـ Auth Service
-  final String _currentUserName = 'Marwa Mohamed';
-  final String _currentUserInitial = 'M';
+  // TODO: جيب دول من AuthCubit/UserModel لما الـ backend يجهز
+  static const String _currentUserId = 'current_user';
+  static const String _currentUserName = 'Marwa Mohamed';
+  static const String _currentUserInitial = 'M';
 
   @override
   void dispose() {
@@ -54,36 +59,54 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Who can see your post?',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            _visibilityTile(PostVisibility.public, Icons.public, 'Public', 'Anyone on Community'),
-            _visibilityTile(PostVisibility.myTeam, Icons.group, 'My Team', 'Your Team on Community'),
-            _visibilityTile(PostVisibility.onlyMe, Icons.lock, 'Only Me', 'Only Me'),
-            const SizedBox(height: 8),
-          ],
+              const SizedBox(height: 16),
+              const Text(
+                'Who can see your post?',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              _visibilityTile(
+                PostVisibility.public,
+                Icons.public,
+                'Public',
+                'Anyone on Community',
+              ),
+              _visibilityTile(
+                PostVisibility.myTeam,
+                Icons.group,
+                'My Team',
+                'Your Team on Community',
+              ),
+              _visibilityTile(
+                PostVisibility.onlyMe,
+                Icons.lock,
+                'Only Me',
+                'Only Me',
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _visibilityTile(PostVisibility value, IconData icon, String title, String sub) {
+  Widget _visibilityTile(
+      PostVisibility value, IconData icon, String title, String sub) {
     final isSelected = _visibility == value;
     return ListTile(
       leading: Icon(icon, color: const Color(0xFF155DFC)),
@@ -99,41 +122,45 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
+  List<String> _extractHashtags(String text) {
+    final regex = RegExp(r'#\w+');
+    return regex.allMatches(text).map((m) => m.group(0)!).toList();
+  }
+
   Future<void> _submitPost() async {
     final content = _contentController.text.trim();
     if (content.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Write something first!")),
+        const SnackBar(content: Text('Write something first!')),
       );
       return;
     }
 
     setState(() => _isPosting = true);
 
-    // TODO: استبدل بـ PostService.createPost(...)
-    await Future.delayed(const Duration(milliseconds: 500)); // simulate network
+    try {
+      // ✅ بنمرر userId و userName عشان الـ repository يعرف مين بوست
+      await widget.cubit.createPost(
+        content: content,
+        hashtags: _extractHashtags(content),
+        visibility: _visibility,
+        userId: _currentUserId,
+        userName: _currentUserName,
+        userInitial: _currentUserInitial,
+      );
 
-    final newPost = PostModel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      userName: _currentUserName,
-      userInitial: _currentUserInitial,
-      userAvatarColor: '#DBEAFE',
-      timeAgo: 'Just now',
-      content: content,
-      hashtags: _extractHashtags(content),
-      likes: 0,
-      comments: 0,
-      isLiked: false,
-    );
-
-    setState(() => _isPosting = false);
-
-    if (mounted) Navigator.pop(context, newPost);
-  }
-
-  List<String> _extractHashtags(String text) {
-    final regex = RegExp(r'#\w+');
-    return regex.allMatches(text).map((m) => m.group(0)!).toList();
+      if (mounted) {
+        // ✅ نرجع بدون result - الـ state اتحدث في الـ cubit مباشرة
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isPosting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to create post: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -158,27 +185,29 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             _buildAppBar(context),
             Expanded(
               child: Center(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.95),
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x3F000000),
-                        blurRadius: 50,
-                        offset: Offset(0, 25),
-                        spreadRadius: -12,
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildPostHeader(),
-                      _buildPostBody(),
-                      _buildPostFooter(),
-                    ],
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.95),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x3F000000),
+                          blurRadius: 50,
+                          offset: Offset(0, 25),
+                          spreadRadius: -12,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildPostHeader(),
+                        _buildPostBody(),
+                        _buildPostFooter(),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -196,37 +225,26 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       decoration: const BoxDecoration(
         color: Colors.white,
         boxShadow: [
-          BoxShadow(
-            color: Color(0x3F000000),
-            blurRadius: 4,
-            offset: Offset(0, 4),
-          ),
+          BoxShadow(color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 4)),
         ],
       ),
-      child: Stack(
-        children: [
-          Positioned(
-            left: 16,
-            top: 44,
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: const SizedBox(
-                width: 32,
-                height: 32,
-                child: Icon(Icons.arrow_back_ios_new, size: 20),
-                // 🔙 TODO: Replace with back arrow icon from assets
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: const Icon(Icons.arrow_back_ios_new, size: 20),
               ),
-            ),
+              const SizedBox(width: 12),
+              const Text(
+                'Community',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w400),
+              ),
+            ],
           ),
-          const Positioned(
-            left: 64,
-            top: 44,
-            child: Text(
-              'Community',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w400),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -235,21 +253,18 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           const Text(
             'Create post',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w400),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
           ),
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: const Icon(Icons.close, size: 22),
-            // ✕ TODO: Replace with close icon from assets
           ),
         ],
       ),
@@ -262,13 +277,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // User Info + Visibility
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
                 children: [
-                  // 👤 Avatar
                   Container(
                     width: 40,
                     height: 40,
@@ -297,13 +310,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   ),
                 ],
               ),
-
-              // Visibility Button
+              // ✅ Visibility Picker
               GestureDetector(
                 onTap: _openVisibilityPicker,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(10),
@@ -317,6 +328,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     ],
                   ),
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(_visibilityIcon,
                           size: 14, color: const Color(0xFF155DFC)),
@@ -338,13 +350,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               ),
             ],
           ),
-
           const SizedBox(height: 16),
-
-          // Text Field
           TextField(
             controller: _contentController,
-            maxLines: 5,
+            maxLines: 6,
             minLines: 4,
             decoration: const InputDecoration(
               hintText: "What's on your mind?",
@@ -352,6 +361,42 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               border: InputBorder.none,
             ),
           ),
+          // ✅ Visibility info banner
+          if (_visibility != PostVisibility.public) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _visibility == PostVisibility.onlyMe
+                    ? const Color(0xFFFFF7ED)
+                    : const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _visibilityIcon,
+                    size: 14,
+                    color: _visibility == PostVisibility.onlyMe
+                        ? Colors.orange
+                        : const Color(0xFF155DFC),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _visibility == PostVisibility.onlyMe
+                        ? 'Only you can see this post'
+                        : 'Only your team members can see this post',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _visibility == PostVisibility.onlyMe
+                          ? Colors.orange[700]
+                          : const Color(0xFF155DFC),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -367,6 +412,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           onPressed: _isPosting ? null : _submitPost,
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF2196F3),
+            disabledBackgroundColor: const Color(0xFF2196F3).withOpacity(0.5),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
@@ -386,7 +432,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
-                    fontWeight: FontWeight.w400,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
         ),

@@ -1,4 +1,4 @@
-// lib/screens/team_screen.dart
+// lib/screens/TeamScreen/team_screen.dart
 import 'package:flutter/material.dart';
 import 'package:onboard/models/TaskModels/team_member_model.dart';
 import 'package:onboard/widgets/tasks/my_work/member_card.dart';
@@ -15,7 +15,11 @@ class TeamScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFEFF6FF), Color(0xFFF4F4F4), Color(0xFF7D9FCA)],
+            colors: [
+              Color(0xFFEFF6FF),
+              Color(0xFFF4F4F4),
+              Color(0xFF7D9FCA),
+            ],
           ),
         ),
         child: Column(
@@ -47,7 +51,11 @@ class TeamScreen extends StatelessWidget {
       decoration: const BoxDecoration(
         color: Colors.white,
         boxShadow: [
-          BoxShadow(color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 1)),
+          BoxShadow(
+            color: Color(0x3F000000),
+            blurRadius: 4,
+            offset: Offset(0, 1),
+          ),
         ],
       ),
       child: Row(
@@ -77,8 +85,17 @@ class TeamScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
         ),
         shadows: const [
-          BoxShadow(color: Color(0x19000000), blurRadius: 2, offset: Offset(0, 1), spreadRadius: -1),
-          BoxShadow(color: Color(0x19000000), blurRadius: 3, offset: Offset(0, 1)),
+          BoxShadow(
+            color: Color(0x19000000),
+            blurRadius: 2,
+            offset: Offset(0, 1),
+            spreadRadius: -1,
+          ),
+          BoxShadow(
+            color: Color(0x19000000),
+            blurRadius: 3,
+            offset: Offset(0, 1),
+          ),
         ],
       ),
       child: Column(
@@ -97,6 +114,7 @@ class TeamScreen extends StatelessWidget {
           const SizedBox(height: 8),
           _buildInfoRow('Assistant:', 'Eng. Alaa'),
           const SizedBox(height: 8),
+          // TODO: الداتا دي هتيجي من الـ API
           _buildInfoRow('Members:', '8 Members • Started: Jul 1, 2025'),
         ],
       ),
@@ -111,19 +129,13 @@ class TeamScreen extends StatelessWidget {
           width: 80,
           child: Text(
             label,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Color(0xFF4A5565),
-            ),
+            style: const TextStyle(fontSize: 14, color: Color(0xFF4A5565)),
           ),
         ),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Color(0xFF101828),
-            ),
+            style: const TextStyle(fontSize: 14, color: Color(0xFF101828)),
           ),
         ),
       ],
@@ -140,15 +152,32 @@ class TeamScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
         ),
         shadows: const [
-          BoxShadow(color: Color(0x19000000), blurRadius: 2, offset: Offset(0, 1), spreadRadius: -1),
-          BoxShadow(color: Color(0x19000000), blurRadius: 3, offset: Offset(0, 1)),
+          BoxShadow(
+            color: Color(0x19000000),
+            blurRadius: 2,
+            offset: Offset(0, 1),
+            spreadRadius: -1,
+          ),
+          BoxShadow(
+            color: Color(0x19000000),
+            blurRadius: 3,
+            offset: Offset(0, 1),
+          ),
         ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
         child: Column(
           children: TeamMemberModel.mockMembers
-              .map((member) => MemberCard(member: member))
+              .map(
+                (member) => MemberCard(
+                  member: member,
+                  onMessage: () {
+                    // TODO: فتح الـ Chat Screen مع العضو ده
+                    debugPrint('Message to ${member.name}');
+                  },
+                ),
+              )
               .toList(),
         ),
       ),

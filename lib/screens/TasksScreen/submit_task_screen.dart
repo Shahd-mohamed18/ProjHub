@@ -1,10 +1,15 @@
-// lib/screens/submit_task_screen.dart
+// lib/screens/TasksScreen/submit_task_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:onboard/cubits/tasks/tasks_cubit.dart';
+import 'package:onboard/cubits/tasks/tasks_state.dart';
 import 'package:onboard/models/TaskModels/task_model.dart';
+import 'package:onboard/repositories/task_repository.dart';
 
 class SubmitTaskScreen extends StatefulWidget {
   final TaskModel task;
+
   const SubmitTaskScreen({super.key, required this.task});
 
   @override
@@ -13,7 +18,6 @@ class SubmitTaskScreen extends StatefulWidget {
 
 class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
   final List<PlatformFile> _selectedFiles = [];
-  bool _isSubmitting = false;
 
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
@@ -24,6 +28,7 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
     if (result != null) {
       setState(() {
         for (final f in result.files) {
+          // ✅ نتجنب الـ duplicates
           if (!_selectedFiles.any((e) => e.name == f.name)) {
             _selectedFiles.add(f);
           }
@@ -36,60 +41,70 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
     setState(() => _selectedFiles.removeAt(index));
   }
 
-  Future<void> _submit() async {
-    if (_selectedFiles.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one file')),
-      );
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
-
-    // TODO: استبدل بـ API call حقيقي
-    await Future.delayed(const Duration(seconds: 1));
-
-    setState(() => _isSubmitting = false);
-
-    if (mounted) Navigator.pop(context, true);
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFEFF6FF), Color(0xFFF4F4F4), Color(0xFF7D9FCA)],
-          ),
-        ),
-        child: Column(
-          children: [
-            _buildAppBar(context),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildTaskInfoCard(),
-                    const SizedBox(height: 24),
-                    _buildUploadSection(),
-                    const SizedBox(height: 12),
-                    ..._selectedFiles.asMap().entries.map(
-                          (entry) => _buildFileChip(entry.key, entry.value),
-                        ),
-                    const SizedBox(height: 32),
-                    _buildActionButtons(context),
+    // ✅ BlocProvider جديد للـ Submit - منفصل عن الـ tasks_screen
+    return BlocProvider(
+      create: (_) => TasksCubit(MockTaskRepository()),
+      child: BlocConsumer<TasksCubit, TasksState>(
+        listener: (context, state) {
+          if (state is TaskSubmitted) {
+            // ✅ نرجع للشاشة السابقة مع نتيجة نجاح
+            Navigator.pop(context, true);
+          }
+          if (state is TaskSubmitError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        },
+        builder: (context, state) {
+          final isSubmitting = state is TaskSubmitting;
+
+          return Scaffold(
+            backgroundColor: Colors.transparent,
+            body: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFFEFF6FF),
+                    Color(0xFFF4F4F4),
+                    Color(0xFF7D9FCA),
                   ],
                 ),
               ),
+              child: Column(
+                children: [
+                  _buildAppBar(context),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildTaskInfoCard(),
+                          const SizedBox(height: 24),
+                          _buildUploadSection(),
+                          const SizedBox(height: 12),
+                          ..._selectedFiles.asMap().entries.map(
+                                (e) => _buildFileChip(e.key, e.value),
+                              ),
+                          const SizedBox(height: 32),
+                          _buildActionButtons(context, isSubmitting),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -101,7 +116,11 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
       decoration: const BoxDecoration(
         color: Colors.white,
         boxShadow: [
-          BoxShadow(color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 1)),
+          BoxShadow(
+            color: Color(0x3F000000),
+            blurRadius: 4,
+            offset: Offset(0, 1),
+          ),
         ],
       ),
       child: Row(
@@ -111,7 +130,10 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
             child: const Icon(Icons.arrow_back_ios_new, size: 20),
           ),
           const SizedBox(width: 12),
-          const Text('Submit Task', style: TextStyle(fontSize: 24)),
+          const Text(
+            'Submit Task',
+            style: TextStyle(fontSize: 24, fontFamily: 'Roboto'),
+          ),
         ],
       ),
     );
@@ -135,12 +157,12 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
           const SizedBox(height: 6),
           Text(
             'From: ${widget.task.from}',
-            style: const TextStyle(fontSize: 15, color: Colors.grey, fontWeight: FontWeight.w500),
+            style: const TextStyle(fontSize: 15, color: Colors.grey),
           ),
           const SizedBox(height: 2),
           Text(
             'Due ${widget.task.formattedDueDate}',
-            style: const TextStyle(fontSize: 15, color: Colors.grey, fontWeight: FontWeight.w500),
+            style: const TextStyle(fontSize: 15, color: Colors.grey),
           ),
         ],
       ),
@@ -193,7 +215,10 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
                       ),
                       TextSpan(
                         text: ' or drag & drop',
-                        style: TextStyle(color: Colors.black87, fontSize: 16),
+                        style: TextStyle(
+                          color: Colors.black87,
+                          fontSize: 16,
+                        ),
                       ),
                     ],
                   ),
@@ -242,17 +267,18 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
     );
   }
 
-  Widget _buildActionButtons(BuildContext context) {
+  Widget _buildActionButtons(BuildContext context, bool isSubmitting) {
     return Row(
       children: [
         Expanded(
           child: SizedBox(
             height: 50,
             child: OutlinedButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed:
+                  isSubmitting ? null : () => Navigator.pop(context),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.black87,
-                side: BorderSide(color: Colors.grey.shade400),
+                side: const BorderSide(color: Colors.grey),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -269,7 +295,26 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
           child: SizedBox(
             height: 50,
             child: ElevatedButton(
-              onPressed: _isSubmitting ? null : _submit,
+              onPressed: isSubmitting
+                  ? null
+                  : () {
+                      if (_selectedFiles.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content:
+                                Text('Please select at least one file'),
+                          ),
+                        );
+                        return;
+                      }
+                      context.read<TasksCubit>().submitTask(
+                            taskId: widget.task.id,
+                            // ✅ نبعت الـ paths - لو null نبعت الاسم مؤقتاً
+                            filePaths: _selectedFiles
+                                .map((f) => f.path ?? f.name)
+                                .toList(),
+                          );
+                    },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2196F3),
                 foregroundColor: Colors.white,
@@ -278,17 +323,21 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: _isSubmitting
+              child: isSubmitting
                   ? const SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Text(
                       'Submit',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
             ),
           ),

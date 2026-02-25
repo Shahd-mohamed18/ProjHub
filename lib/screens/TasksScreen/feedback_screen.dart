@@ -1,4 +1,4 @@
-// lib/screens/feedback_screen.dart
+// lib/screens/TasksScreen/feedback_screen.dart
 import 'package:flutter/material.dart';
 import 'package:onboard/models/TaskModels/feedback_model.dart';
 import 'package:onboard/widgets/tasks/task_details/attachment_item.dart';
@@ -18,6 +18,10 @@ class FeedbackScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final allAttachments = feedbacks.isNotEmpty
+        ? feedbacks.first.attachments
+        : <AttachmentModel>[];
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Container(
@@ -25,49 +29,68 @@ class FeedbackScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFEFF6FF), Color(0xFFF4F4F4), Color(0xFF7D9FCA)],
+            colors: [
+              Color(0xFFEFF6FF),
+              Color(0xFFF4F4F4),
+              Color(0xFF7D9FCA),
+            ],
           ),
         ),
         child: Column(
           children: [
             _buildAppBar(context),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Submitted Attachments Section
-                    if (_getAllAttachments().isNotEmpty) ...[
-                      const Text(
-                        'Submitted Attachment',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF101828),
-                        ),
+              child: feedbacks.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No feedback yet.',
+                        style: TextStyle(color: Colors.grey, fontSize: 16),
                       ),
-                      const SizedBox(height: 16),
-                      ..._getAllAttachments().map((attachment) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: AttachmentItem(
-                          fileName: attachment.name,
-                          fileType: attachment.type,
-                          iconBackgroundColor: const Color(0xFF2196F3),
-                          showDownloadButton: false, 
-                        ),
-                      )),
-                      const SizedBox(height: 24),
-                    ],
+                    )
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Submitted Attachments
+                          if (allAttachments.isNotEmpty) ...[
+                            const Text(
+                              'Submitted Attachments',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF101828),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            ...allAttachments.map(
+                              (a) => Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: AttachmentItem(
+                                  fileName: a.name,
+                                  fileType: a.type,
+                                  iconBackgroundColor: const Color(0xFF2196F3),
+                                  showDownloadButton: true,
+                                  onDownload: () {
+                                    // TODO: تنزيل الملف من → a.downloadUrl
+                                    debugPrint('Download: ${a.name}');
+                                  },
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                          ],
 
-                    // Feedback Sections
-                    ...feedbacks.map((feedback) => Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: FeedbackCard(feedback: feedback),
-                    )),
-                  ],
-                ),
-              ),
+                          // Feedback Cards
+                          ...feedbacks.map(
+                            (fb) => Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: FeedbackCard(feedback: fb),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
             ),
           ],
         ),
@@ -83,7 +106,11 @@ class FeedbackScreen extends StatelessWidget {
       decoration: const BoxDecoration(
         color: Colors.white,
         boxShadow: [
-          BoxShadow(color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 1)),
+          BoxShadow(
+            color: Color(0x3F000000),
+            blurRadius: 4,
+            offset: Offset(0, 1),
+          ),
         ],
       ),
       child: Row(
@@ -100,10 +127,5 @@ class FeedbackScreen extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  List<AttachmentModel> _getAllAttachments() {
-    // نجيب المرفقات من أول فيدباك (المفروض تكون كلها متشابهة)
-    return feedbacks.isNotEmpty ? feedbacks.first.attachments : [];
   }
 }

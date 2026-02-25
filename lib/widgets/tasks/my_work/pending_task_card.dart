@@ -1,7 +1,8 @@
-// lib/widgets/my_work/pending_task_card.dart
+// lib/widgets/tasks/my_work/pending_task_card.dart
 import 'package:flutter/material.dart';
 import 'package:onboard/models/TaskModels/task_model.dart';
 
+// ✅ الـ Widget مش بيعمل Navigation لوحده - بيعدي الـ callback للـ Screen
 class PendingTaskCard extends StatelessWidget {
   final TaskModel task;
   final VoidCallback onSubmit;
@@ -25,25 +26,30 @@ class PendingTaskCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
         ),
         shadows: const [
-          BoxShadow(color: Color(0x19000000), blurRadius: 2, offset: Offset(0, 1), spreadRadius: -1),
-          BoxShadow(color: Color(0x19000000), blurRadius: 3, offset: Offset(0, 1)),
+          BoxShadow(
+            color: Color(0x19000000),
+            blurRadius: 2,
+            offset: Offset(0, 1),
+            spreadRadius: -1,
+          ),
+          BoxShadow(
+            color: Color(0x19000000),
+            blurRadius: 3,
+            offset: Offset(0, 1),
+          ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                task.title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontFamily: 'Arimo',
-                  color: Color(0xFF101828),
-                ),
-              ),
-            ],
+          Text(
+            task.title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontFamily: 'Arimo',
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF101828),
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -63,6 +69,7 @@ class PendingTaskCard extends StatelessWidget {
                 backgroundColor: const Color(0xFF2196F3),
                 foregroundColor: Colors.white,
                 minimumSize: const Size(112, 36),
+                elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),

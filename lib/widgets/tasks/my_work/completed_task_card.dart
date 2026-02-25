@@ -1,17 +1,17 @@
-// lib/widgets/my_work/completed_task_card.dart
+// lib/widgets/tasks/my_work/completed_task_card.dart
 import 'package:flutter/material.dart';
 import 'package:onboard/models/TaskModels/completed_task_model.dart';
-import 'package:onboard/models/TaskModels/feedback_model.dart'; 
-import 'package:onboard/screens/TasksScreen/feedback_screen.dart'; 
 
+// ✅ الـ Widget مش بيعمل Navigator.push لوحده
+// الـ Screen هي اللي بتقرر تروح فين
 class CompletedTaskCard extends StatelessWidget {
   final CompletedTaskModel task;
-  final VoidCallback? onViewFeedback; 
+  final VoidCallback onViewFeedback;
 
   const CompletedTaskCard({
     super.key,
     required this.task,
-    this.onViewFeedback, 
+    required this.onViewFeedback,
   });
 
   @override
@@ -27,8 +27,17 @@ class CompletedTaskCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
         ),
         shadows: const [
-          BoxShadow(color: Color(0x19000000), blurRadius: 2, offset: Offset(0, 1), spreadRadius: -1),
-          BoxShadow(color: Color(0x19000000), blurRadius: 3, offset: Offset(0, 1)),
+          BoxShadow(
+            color: Color(0x19000000),
+            blurRadius: 2,
+            offset: Offset(0, 1),
+            spreadRadius: -1,
+          ),
+          BoxShadow(
+            color: Color(0x19000000),
+            blurRadius: 3,
+            offset: Offset(0, 1),
+          ),
         ],
       ),
       child: Column(
@@ -36,14 +45,10 @@ class CompletedTaskCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 20,
-                height: 20,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF4CAF50),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.check, color: Colors.white, size: 14),
+              const CircleAvatar(
+                radius: 10,
+                backgroundColor: Color(0xFF4CAF50),
+                child: Icon(Icons.check, color: Colors.white, size: 12),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -74,34 +79,15 @@ class CompletedTaskCard extends StatelessWidget {
           Align(
             alignment: Alignment.centerRight,
             child: ElevatedButton(
-              onPressed: () {
-              
-                if (onViewFeedback != null) {
-                  onViewFeedback!();
-                } else {
-                  // ✅ التنقل المباشر لصفحة الفيدباك
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => FeedbackScreen(
-                        taskId: task.id,
-                        taskTitle: task.title,
-                        feedbacks: FeedbackModel.mockFeedbacks
-                            .where((f) => f.taskId == task.id)
-                            .toList(),
-                      ),
-                    ),
-                  );
-                }
-              },
+              onPressed: onViewFeedback, // ✅ الـ Screen هي اللي بتحدد إيه اللي يحصل
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFF3F4F6),
                 foregroundColor: const Color(0xFF364153),
                 minimumSize: const Size(124, 36),
+                elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
-                elevation: 0,
               ),
               child: const Text(
                 'View Feedback',

@@ -7,7 +7,7 @@ class TeamMemberModel {
   final String role;
   final String initial;
   final Color avatarColor;
-  final Color cardColor; // ✅ إجباري
+  final Color cardColor;
   final bool isOnline;
   final Color? statusColor;
 
@@ -17,40 +17,37 @@ class TeamMemberModel {
     required this.role,
     required this.initial,
     required this.avatarColor,
-    required this.cardColor, // ✅ لازم كل عضو يمررها
+    required this.cardColor,
     this.isOnline = true,
     this.statusColor,
   });
 
   static List<TeamMemberModel> mockMembers = [
-    // Dr Mohamed (مميز)
     TeamMemberModel(
       id: '1',
       name: 'Dr Mohamed',
       role: 'Supervisor',
       initial: 'M',
       avatarColor: const Color(0xFFF3F4F6),
-      cardColor: const Color(0x8E3B82F6), // ✅ أزرق شفاف
+      cardColor: const Color(0x8E3B82F6),
       isOnline: true,
     ),
-    // Eng Alaa (مميز)
     TeamMemberModel(
       id: '2',
       name: 'Eng Alaa',
       role: 'Assistant Teacher',
       initial: '👩',
       avatarColor: const Color(0xFFF3F4F6),
-      cardColor: const Color(0xFFFEF9C2), // ✅ أصفر فاتح
+      cardColor: const Color(0xFFFEF9C2),
       isOnline: true,
     ),
-    // باقي الأعضاء كلهم
     TeamMemberModel(
       id: '3',
       name: 'Faten Hesham',
       role: 'Flutter Developer',
       initial: '👩',
       avatarColor: const Color(0xFFF3F4F6),
-      cardColor: Colors.white, // ✅ أبيض
+      cardColor: Colors.white,
       isOnline: true,
       statusColor: const Color(0xFFF0B100),
     ),
@@ -60,7 +57,7 @@ class TeamMemberModel {
       role: 'BackEnd Developer',
       initial: '👩',
       avatarColor: const Color(0xFFF3F4F6),
-      cardColor: Colors.white, // ✅ أبيض
+      cardColor: Colors.white,
       isOnline: true,
     ),
     TeamMemberModel(
@@ -69,7 +66,7 @@ class TeamMemberModel {
       role: 'Flutter Developer',
       initial: '👩',
       avatarColor: const Color(0xFFF3F4F6),
-      cardColor: Colors.white, // ✅ أبيض
+      cardColor: Colors.white,
       isOnline: true,
     ),
     TeamMemberModel(
@@ -78,7 +75,7 @@ class TeamMemberModel {
       role: 'Designer',
       initial: '👩',
       avatarColor: const Color(0xFFF3F4F6),
-      cardColor: Colors.white, // ✅ أبيض
+      cardColor: Colors.white,
       isOnline: true,
     ),
     TeamMemberModel(
@@ -87,7 +84,7 @@ class TeamMemberModel {
       role: 'AI Developer',
       initial: '👩',
       avatarColor: const Color(0xFFF3F4F6),
-      cardColor: Colors.white, // ✅ أبيض
+      cardColor: Colors.white,
       isOnline: true,
     ),
     TeamMemberModel(
@@ -96,7 +93,7 @@ class TeamMemberModel {
       role: 'BackEnd Developer',
       initial: '👩',
       avatarColor: const Color(0xFFF3F4F6),
-      cardColor: Colors.white, // ✅ أبيض
+      cardColor: Colors.white,
       isOnline: true,
     ),
   ];

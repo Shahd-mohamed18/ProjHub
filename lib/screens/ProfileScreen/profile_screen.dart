@@ -4,7 +4,7 @@ import 'package:onboard/data/firebaseFunction/firebase_auth_function.dart';
 import 'package:onboard/models/user_model.dart';
 import 'package:onboard/screens/ProfileScreen/edit_profile_screen.dart';
 import 'package:onboard/screens/ProfileScreen/settings_screen.dart';
-import 'package:onboard/screens/CommunityScreen/community_screen.dart';
+import 'package:onboard/screens/community/community_screen.dart';
 import 'dart:io';
 
 // ✅ projects برة الـ class - مش محتاج يتعمل rebuild معاها
@@ -373,7 +373,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
          Navigator.push(
            context,
            MaterialPageRoute(
-             builder: (context) => const CommunityScreen(initialTab: 1),
+             builder: (context) => const CommunityScreen(),
     ),
   );
 },

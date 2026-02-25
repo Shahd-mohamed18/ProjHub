@@ -1,123 +1,75 @@
 // lib/models/task_model.dart
-
-enum TaskStatus { pending, submitted, approved, rejected }
+import 'package:intl/intl.dart';
 
 class TaskModel {
   final String id;
   final String title;
-  final String from;
+  final String from; // 'Supervisor' | 'Assistant'
   final DateTime dueDate;
-  bool isCompleted;
   final String? description;
   final List<Map<String, String>>? myAttachments;
-  final TaskStatus status; // ✅ جديد
 
-  TaskModel({
+  const TaskModel({
     required this.id,
     required this.title,
     required this.from,
     required this.dueDate,
-    this.isCompleted = false,
     this.description,
     this.myAttachments,
-    this.status = TaskStatus.pending, // ✅ default قيمته pending
   });
 
-  String get formattedDueDate {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return '${months[dueDate.month - 1]} ${dueDate.day}, ${dueDate.year}';
-  }
+  String get formattedDueDate => DateFormat('MMM dd, yyyy').format(dueDate);
 
-  // ✅ helper بيرجع نص الـ status
-  String get statusLabel {
-    switch (status) {
-      case TaskStatus.pending:
-        return 'Pending';
-      case TaskStatus.submitted:
-        return 'Submitted';
-      case TaskStatus.approved:
-        return 'Approved';
-      case TaskStatus.rejected:
-        return 'Rejected';
-    }
-  }
-
-  // ✅ helper بيرجع لون الـ status
-  // استخدامه: Color statusColor = task.statusColor;
-  int get statusColorValue {
-    switch (status) {
-      case TaskStatus.pending:
-        return 0xFFFFA500; // Orange
-      case TaskStatus.submitted:
-        return 0xFF2196F3; // Blue
-      case TaskStatus.approved:
-        return 0xFF4CAF50; // Green
-      case TaskStatus.rejected:
-        return 0xFFF44336; // Red
-    }
-  }
-
-  static List<TaskModel> mockTasks = [
-    TaskModel(
-      id: '1',
-      title: 'Complete Project Documentation',
-      from: 'Supervisor',
-      dueDate: DateTime(2026, 2, 3),
-      description:
-          'Design the homepage for e-commerce platform with product listings and navigation.',
-      status: TaskStatus.pending, // ✅
-      myAttachments: [
-        {'name': 'Wireframe.fig', 'type': 'FIG'},
-        {'name': 'Documentation.pdf', 'type': 'PDF'},
-      ],
-    ),
-    TaskModel(
-      id: '2',
-      title: 'Prototyping',
-      from: 'Supervisor',
-      dueDate: DateTime(2026, 2, 2),
-      description: 'Create interactive prototype for the new feature.',
-      status: TaskStatus.submitted, // ✅
-      myAttachments: [],
-    ),
-  ];
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'from': from,
-      'dueDate': dueDate.toIso8601String(),
-      'isCompleted': isCompleted,
-      'description': description,
-      'myAttachments': myAttachments,
-      'status': status.name, // ✅ بيبعت "pending" / "submitted" / إلخ
-    };
-  }
-
+  // ✅ جاهز للـ API
   factory TaskModel.fromJson(Map<String, dynamic> json) {
     return TaskModel(
-      id: json['id'],
-      title: json['title'],
-      from: json['from'],
-      dueDate: DateTime.parse(json['dueDate']),
-      isCompleted: json['isCompleted'] ?? false,
-      description: json['description'],
-      myAttachments: json['myAttachments'] != null
-          ? List<Map<String, String>>.from(
-              (json['myAttachments'] as List).map(
-                (e) => Map<String, String>.from(e),
-              ),
-            )
-          : null,
-      // ✅ بيحول الـ string الجاي من الـ backend لـ enum
-      status: TaskStatus.values.firstWhere(
-        (e) => e.name == json['status'],
-        orElse: () => TaskStatus.pending,
-      ),
+      id: json['id'] as String,
+      title: json['title'] as String,
+      from: json['from'] as String,
+      dueDate: DateTime.parse(json['due_date'] as String),
+      description: json['description'] as String?,
+      myAttachments: (json['attachments'] as List<dynamic>?)
+          ?.map((e) => Map<String, String>.from(e as Map))
+          .toList(),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'from': from,
+        'due_date': dueDate.toIso8601String(),
+        'description': description,
+        'attachments': myAttachments,
+      };
+
+  // ✅ Mock Data مؤقتة - هتتشال لما الـ API يجهز
+  static List<TaskModel> get mockTasks => [
+        TaskModel(
+          id: 'task_001',
+          title: 'UI Design Review',
+          from: 'Supervisor',
+          dueDate: DateTime(2025, 8, 20),
+          description:
+              'Review the current UI designs and provide feedback on the color scheme, typography, and overall layout consistency.',
+          myAttachments: [],
+        ),
+        TaskModel(
+          id: 'task_002',
+          title: 'Backend Integration',
+          from: 'Assistant',
+          dueDate: DateTime(2025, 8, 25),
+          description:
+              'Integrate the Flutter app with the .NET backend APIs for authentication and task management.',
+          myAttachments: [],
+        ),
+        TaskModel(
+          id: 'task_003',
+          title: 'Testing & Documentation',
+          from: 'Supervisor',
+          dueDate: DateTime(2025, 9, 1),
+          description: 'Write unit tests and document all public APIs.',
+          myAttachments: [],
+        ),
+      ];
 }
