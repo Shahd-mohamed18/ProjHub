@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/comments/comments_cubit.dart';
 import 'package:onboard/cubits/comments/comments_state.dart';
 import 'package:onboard/models/TaskModels/comment_model.dart';
+import 'package:onboard/repositories/task_repository.dart';
 
 class CommentSection extends StatefulWidget {
   final String taskId;
@@ -36,8 +37,8 @@ class _CommentSectionState extends State<CommentSection> {
     context.read<CommentsCubit>().addComment(
           taskId: widget.taskId,
           text: text,
-          userId: 'current_user_id', // TODO: من الـ Auth State
-          userName: 'Me', // TODO: من الـ Auth State
+          userId: 'current_user_id',
+          userName: 'Me',
         );
 
     _controller.clear();

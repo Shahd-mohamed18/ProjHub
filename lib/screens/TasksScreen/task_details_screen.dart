@@ -1,9 +1,13 @@
 // lib/screens/task_details_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:onboard/cubits/comments/comments_cubit.dart';
 import 'package:onboard/models/TaskModels/task_model.dart';
+import 'package:onboard/repositories/task_repository.dart';
 import 'package:onboard/screens/TasksScreen/submit_task_screen.dart';
 import 'package:onboard/widgets/tasks/task_details/attachment_item.dart';
 import 'package:onboard/widgets/tasks/task_details/comment_section.dart';
+import 'package:onboard/repositories/mock_task_repository.dart';
 
 class TaskDetailsScreen extends StatelessWidget {
   final TaskModel task;
@@ -11,39 +15,46 @@ class TaskDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFEFF6FF), Color(0xFFF4F4F4), Color(0xFF7D9FCA)],
-          ),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) => CommentsCubit(MockTaskRepository()),
         ),
-        child: Column(
-          children: [
-            _buildAppBar(context),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildTaskInfoCard(),
-                    const SizedBox(height: 24),
-                    _buildDescriptionSection(),
-                    const SizedBox(height: 24),
-                    _buildAttachmentsSection(),
-                    const SizedBox(height: 16),
-                    _buildUploadButton(context),
-                    const SizedBox(height: 32),
-                    CommentSection(taskId: task.id),
-                  ],
+      ],
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFEFF6FF), Color(0xFFF4F4F4), Color(0xFF7D9FCA)],
+            ),
+          ),
+          child: Column(
+            children: [
+              _buildAppBar(context),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildTaskInfoCard(),
+                      const SizedBox(height: 24),
+                      _buildDescriptionSection(),
+                      const SizedBox(height: 24),
+                      _buildAttachmentsSection(),
+                      const SizedBox(height: 16),
+                      _buildUploadButton(context),
+                      const SizedBox(height: 32),
+                      CommentSection(taskId: task.id),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -175,7 +186,6 @@ class TaskDetailsScreen extends StatelessWidget {
     );
   }
 
-  // ✅ context بيجي كـ parameter عشان الـ StatelessWidget
   Widget _buildUploadButton(BuildContext context) {
     return Center(
       child: Container(
@@ -202,7 +212,6 @@ class TaskDetailsScreen extends StatelessWidget {
                 Icon(Icons.attach_file, size: 18, color: Colors.grey),
                 SizedBox(width: 8),
                 Text('Upload File', style: TextStyle(color: Colors.black87,fontSize: 16,fontWeight: FontWeight.w600)),
-                
               ],
             ),
           ),

@@ -6,6 +6,7 @@ import 'package:onboard/cubits/community/community_cubit.dart';
 import 'package:onboard/cubits/community/community_state.dart';
 import 'package:onboard/models/CommunityModels/post_model.dart';
 import 'package:onboard/repositories/community_repository.dart';
+import 'package:onboard/repositories/mock_community_repository.dart';
 import 'package:onboard/models/CommunityModels/community_comment_model.dart';
 
 class CommentsScreen extends StatefulWidget {

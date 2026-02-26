@@ -15,6 +15,7 @@ import 'package:onboard/widgets/tasks/meeting_card.dart';
 import 'package:onboard/widgets/tasks/task_card.dart';
 import 'package:onboard/widgets/tasks/my_work/pending_task_card.dart';
 import 'package:onboard/widgets/tasks/my_work/completed_task_card.dart';
+import 'package:onboard/repositories/mock_task_repository.dart';
 import 'package:onboard/widgets/tasks/my_work/team_task_card.dart';
 
 // ✅ TasksScreen ← تاني بتعمل setState
@@ -27,7 +28,7 @@ class TasksScreen extends StatefulWidget {
 }
 
 class _TasksScreenState extends State<TasksScreen> {
-  int _currentTabIndex = 1; // My Work نشط افتراضياً
+  int _currentTabIndex = 0; 
 
   @override
   Widget build(BuildContext context) {

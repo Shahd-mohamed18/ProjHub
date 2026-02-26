@@ -10,6 +10,7 @@ import 'package:onboard/widgets/community/post_card.dart';
 import 'package:onboard/widgets/community/trending_header.dart';
 import 'package:onboard/widgets/community/whatsonyourmind.dart';
 import 'package:onboard/repositories/community_repository.dart';
+import 'package:onboard/repositories/mock_community_repository.dart';
 import 'package:onboard/models/CommunityModels/post_model.dart';
 
 class CommunityScreen extends StatelessWidget {
