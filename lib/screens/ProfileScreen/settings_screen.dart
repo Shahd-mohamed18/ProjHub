@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:onboard/screens/privacy_policy_screen.dart';
-import 'package:onboard/screens/terms_screen.dart';
+import 'package:onboard/screens/ProfileScreen/privacy_policy_screen.dart';
+import 'package:onboard/screens/ProfileScreen/terms_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});

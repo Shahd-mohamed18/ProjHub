@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:onboard/widgets/image_picker_widget.dart';
-import 'package:onboard/widgets/custom_form_field_widget.dart';
+import 'package:onboard/widgets/Profile/image_picker_widget.dart';
+import 'package:onboard/widgets/Profile/custom_form_field_widget.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final String currentName;

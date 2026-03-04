@@ -1,22 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:onboard/providers/project_provider.dart';
+
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:onboard/core/Theme/app_theme.dart';
 import 'package:onboard/screens/login_screen.dart';
 import 'package:onboard/screens/main_layout_navbar.dart';
-import 'package:onboard/screens/profile_screen.dart';
+import 'package:onboard/screens/ProfileScreen/profile_screen.dart';
 import 'package:onboard/screens/onboarding_screen.dart';
 import 'package:onboard/screens/varification_email.dart';
 import 'package:onboard/screens/welcome_screen.dart';
+
 import 'package:onboard/screens/sign_up_screen.dart';
 import 'package:onboard/screens/forget_password_screen.dart';
-import 'package:onboard/screens/community_screen.dart';
-import 'package:onboard/screens/comments_screen.dart';
-import 'package:onboard/screens/create_post_screen.dart';
+
 import 'package:onboard/screens/project_details_screen.dart';
 import 'package:onboard/screens/add_project_screen.dart';
 import 'package:onboard/models/project_model.dart';
+
+import 'package:onboard/screens/sign_up_screen.dart'; 
+import 'package:onboard/screens/forget_password_screen.dart'; 
+import 'package:onboard/screens/community/community_screen.dart';
+import 'package:firebase_core/firebase_core.dart';
+
 import 'firebase_options.dart';
 
 // class ProjectProvider extends ChangeNotifier {
@@ -108,7 +114,6 @@ class MyApp extends StatelessWidget {
           '/forgetpassword': (context) => const ForgetPasswordScreen(),
           '/community': (context) => const CommunityScreen(),
 
-          '/create-post': (context) => const CreatePostScreen(),
         },
       ),
     );

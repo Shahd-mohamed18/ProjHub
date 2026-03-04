@@ -6,6 +6,7 @@ class AttachmentItem extends StatelessWidget {
   final String fileType;
   final Color iconBackgroundColor;
   final VoidCallback? onDownload;
+  final bool showDownloadButton; // ✅ جديد: للتحكم في ظهور زر التحميل
 
   const AttachmentItem({
     super.key,
@@ -13,6 +14,7 @@ class AttachmentItem extends StatelessWidget {
     required this.fileType,
     required this.iconBackgroundColor,
     this.onDownload,
+    this.showDownloadButton = true, // ✅ افتراضياً يظهر (للمرفقات)
   });
 
   @override
@@ -35,11 +37,17 @@ class AttachmentItem extends StatelessWidget {
               color: iconBackgroundColor,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.insert_drive_file,
-                color: Colors.white, size: 20),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Image.asset(
+                'assets/images/Frame (4).png', 
+                fit: BoxFit.contain,
+                color: Colors.white,
+              ),
+            ),
           ),
           const SizedBox(width: 12),
-
+          
           // File Info
           Expanded(
             child: Column(
@@ -47,39 +55,32 @@ class AttachmentItem extends StatelessWidget {
               children: [
                 Text(
                   fileName,
-                  style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w500),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   fileType,
-                  style:
-                      const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ],
             ),
           ),
-
-          // Download Button (dashed circle زي الـ design)
-          GestureDetector(
-            onTap: onDownload,
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.grey.shade400,
-                  width: 1.5,
-                  // Flutter مش بيدعم dashed border مباشرة،
-                  // لو عايز dashed استخدم package: dashed_circular_progress_bar
-                ),
+          
+          // Download Button (optional)
+          if (showDownloadButton) // ✅ يظهر فقط لو احتجناه
+            IconButton(
+              onPressed: onDownload ?? () {
+                print('Download $fileName');
+              },
+              icon: Image.asset(
+                'assets/images/Vector.png',
+                width: 20,
+                height: 20,
               ),
-              child: const Icon(Icons.download_outlined,
-                  size: 18, color: Colors.grey),
+              constraints: const BoxConstraints(),
+              padding: EdgeInsets.zero,
             ),
-          ),
         ],
       ),
     );

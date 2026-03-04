@@ -45,11 +45,23 @@ dependencies:
   open_file: ^3.5.11
   path_provider: ^2.1.5
   firebase_storage: ^13.0.6
+  flutter_bloc: ^8.1.6
+  equatable: ^2.0.5
+  intl: ^0.19.0 
   
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  bloc_test: ^9.1.7       # لـ Testing الـ Cubits
+  mocktail: ^1.0.4        # لعمل Mocks في الـ Tests
+
+
+
+ 
+
+
+
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

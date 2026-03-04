@@ -175,7 +175,7 @@ import 'package:onboard/data/firebaseFunction/firebase_auth_function.dart';
 import 'package:onboard/screens/Sign_up_screen.dart';
 import 'package:onboard/screens/forget_password_screen.dart';
 import 'package:onboard/validation/form_validation.dart';
-import 'package:onboard/widgets/custom_form_field_widget.dart';
+import 'package:onboard/widgets/Profile/custom_form_field_widget.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});

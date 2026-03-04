@@ -3,8 +3,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:onboard/data/firebaseFunction/firebase_auth_function.dart';
 import 'package:onboard/screens/login_screen.dart';
 import 'package:onboard/validation/form_validation.dart';
-import 'package:onboard/widgets/custom_form_field_widget.dart';
-import 'package:onboard/widgets/image_picker_widget.dart';
+import 'package:onboard/widgets/Profile/custom_form_field_widget.dart';
+import 'package:onboard/widgets/Profile/image_picker_widget.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
