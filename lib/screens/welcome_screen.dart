@@ -21,71 +21,97 @@ class WelcomeScreen extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: SizedBox.expand(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 30),
-              child: Column(
-                // mainAxisSize: MainAxisSize.max,
-                children: [
-                  Text(
-                    'Welcome To',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 25),
-                  ),
-                  Text(
-                    'ProjHub',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 25),
-                  ),
-                  Text(
-                    'Where Innovation Meets Collaboration',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  SizedBox(height: 100),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) {
-                            return LoginScreen();
-                          },
-                        ),
-                      );
-                    },
-                    child: CustomWelcomeWidget(
-                      title: 'User',
-                      subtitle1: 'share projects',
-                      subtitle2: 'and collaborate',
-                      imagePath: 'assets/images/grade icon.jpg',
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: MediaQuery.of(context).size.height,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 15,
+                  vertical: 30,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Welcome To',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 25,
+                      ),
                     ),
-                  ),
-                  CustomWelcomeWidget(
-                    title: 'Supervisor',
-                    subtitle1: 'manage teams',
-                    subtitle2: 'and progress',
-                    imagePath:
-                        'assets/images/6751dd9a9d57790ad08dd50652e2aacbaac8513b.png',
-                    color: Color(0Xff9747FF),
-                  ),
-                  CustomWelcomeWidget(
-                    title: 'Assistant',
-                    subtitle1: 'support,help,',
-                    subtitle2: 'and manage',
-                    imagePath:
-                        'assets/images/33d002cbe644eae4c317e983ea7ad2655cbd135d.png',
-                    color: Color(0xffE9EC4D),
-                  ),
-                  Spacer(flex: 1),
-                  Text(
-                    'By Continuing, You Agree Our Terms',
-                    style: TextStyle(
-                      color: const Color.fromARGB(255, 89, 121, 137),
+                    Text(
+                      'ProjHub',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 25,
+                      ),
                     ),
-                  ),
-                  Text(
-                    '         &Privacy Policy       ',
-                    style: TextStyle(color: Color.fromARGB(255, 89, 121, 137)),
-                  ),
-                ],
+                    Text(
+                      'Where Innovation Meets Collaboration',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    SizedBox(height: 60),
+
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => LoginScreen(),
+                          ),
+                        );
+                      },
+                      child: CustomWelcomeWidget(
+                        title: 'User',
+                        subtitle1: 'share projects',
+                        subtitle2: 'and collaborate',
+                        imagePath: 'assets/images/grade icon.jpg',
+                      ),
+                    ),
+
+                    SizedBox(height: 15),
+
+                    CustomWelcomeWidget(
+                      title: 'Supervisor',
+                      subtitle1: 'manage teams',
+                      subtitle2: 'and progress',
+                      imagePath:
+                          'assets/images/6751dd9a9d57790ad08dd50652e2aacbaac8513b.png',
+                      color: Color(0Xff9747FF),
+                    ),
+
+                    SizedBox(height: 15),
+
+                    CustomWelcomeWidget(
+                      title: 'Assistant',
+                      subtitle1: 'support,help,',
+                      subtitle2: 'and manage',
+                      imagePath:
+                          'assets/images/33d002cbe644eae4c317e983ea7ad2655cbd135d.png',
+                      color: Color(0xffE9EC4D),
+                    ),
+
+                    SizedBox(height: 30),
+
+                    Text(
+                      'By Continuing, You Agree Our Terms',
+                      style: TextStyle(
+                        color: Color.fromARGB(255, 89, 121, 137),
+                      ),
+                    ),
+                    Text(
+                      '& Privacy Policy',
+                      style: TextStyle(
+                        color: Color.fromARGB(255, 89, 121, 137),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
