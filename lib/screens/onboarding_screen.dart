@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:onboard/screens/main_layout_navbar.dart';
-import 'package:onboard/screens/welcome_screen.dart';
+import 'package:onboard/screens/AuthScreens/welcome_screen.dart';
 import 'home_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {

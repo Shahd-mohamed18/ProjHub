@@ -505,8 +505,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/project_model.dart';
-import '../screens/project_details_screen.dart';
+import '../../models/project_model.dart';
+import '../../screens/projectScreens/project_details_screen.dart';
 
 class ProjectCard extends StatefulWidget {
   final Project project;
@@ -699,11 +699,11 @@ class _ProjectCardState extends State<ProjectCard> {
                       ],
                     ),
 
-                    if (_authorData?['university'] != null && !_isLoading)
+                    if (_authorData?['track'] != null && !_isLoading)
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
-                          _authorData!['university'],
+                          _authorData!['track'],
                           style: TextStyle(
                             fontSize: 10,
                             color: Colors.grey.shade500,

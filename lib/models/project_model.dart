@@ -92,6 +92,31 @@ class Project {
   String get coverImage => images.isNotEmpty ? images.first : '';
   List<String> get projectImages => images.length > 1 ? images.sublist(1) : [];
 
+  // كوبي المشروع مع تحديث بعض الحقول
+  Project copyWith({
+    String? title,
+    String? description,
+    List<String>? images,
+    List<String>? tags,
+    String? category,
+    String? documentUrl,
+    String? githubUrl,
+  }) {
+    return Project(
+      id: id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      authorId: authorId,
+      authorName: authorName,
+      images: images ?? this.images,
+      tags: tags ?? this.tags,
+      category: category ?? this.category,
+      documentUrl: documentUrl ?? this.documentUrl,
+      githubUrl: githubUrl ?? this.githubUrl,
+      createdAt: createdAt,
+    );
+  }
+
   factory Project.fromJson(Map<String, dynamic> json) {
     return Project(
       id: json['id'],
@@ -105,6 +130,22 @@ class Project {
       documentUrl: json['documentUrl'] ?? '',
       githubUrl: json['githubUrl'],
       createdAt: DateTime.parse(json['createdAt']),
+    );
+  }
+
+  factory Project.fromFirestore(String id, Map<String, dynamic> data) {
+    return Project(
+      id: id,
+      title: data['title'] ?? '',
+      description: data['description'] ?? '',
+      authorId: data['authorId'] ?? '',
+      authorName: data['authorName'] ?? '',
+      images: List<String>.from(data['images'] ?? []),
+      tags: List<String>.from(data['tags'] ?? []),
+      category: data['category'] ?? '',
+      documentUrl: data['documentUrl'] ?? '',
+      githubUrl: data['githubUrl'],
+      createdAt: DateTime.parse(data['createdAt'] ?? DateTime.now().toIso8601String()),
     );
   }
 
