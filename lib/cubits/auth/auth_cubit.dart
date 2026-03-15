@@ -3,7 +3,6 @@
 // import 'package:cloud_firestore/cloud_firestore.dart';
 // import 'package:flutter/material.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart';
-// import 'package:google_sign_in/google_sign_in.dart';
 // import 'package:onboard/models/user_model.dart';
 
 // part 'auth_state.dart';
@@ -14,6 +13,15 @@
 //   final FirebaseAuth _auth = FirebaseAuth.instance;
 //   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 //   StreamSubscription? _authSubscription;
+
+//   // تخزين الدور المؤقت (للاستخدام في الـ sign up)
+//   UserRole? _tempSelectedRole;
+
+//   void setTempRole(UserRole role) {
+//     _tempSelectedRole = role;
+//   }
+
+//   UserRole? getTempRole() => _tempSelectedRole;
 
 //   void initialize() {
 //     _authSubscription = _auth.authStateChanges().listen((User? user) async {
@@ -48,8 +56,7 @@
 //           userModel: userModel,
 //         ));
 //       } else {
-//         // User exists in Auth but not in Firestore
-//         await user.delete(); // Or handle appropriately
+//         await user.delete();
 //         emit(state.copyWith(status: AuthStatus.unauthenticated));
 //       }
 //     } catch (e) {
@@ -199,260 +206,55 @@
 //     }
 //   }
 
-//   // Google Sign In
-//   Future<void> signInWithGoogle({required BuildContext context}) async {
-//     emit(state.copyWith(status: AuthStatus.loading));
-
-//     try {
-//       final GoogleSignIn googleSignIn = GoogleSignIn();
-//       await googleSignIn.signOut(); // Force account picker
-
-//       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-
-//       if (googleUser == null) {
-//         emit(state.copyWith(status: AuthStatus.unauthenticated));
-//         _showSnackBar(context, 'Sign-in canceled');
-//         return;
-//       }
-
-//       final GoogleSignInAuthentication googleAuth =
-//           await googleUser.authentication;
-
-//       final credential = GoogleAuthProvider.credential(
-//         accessToken: googleAuth.accessToken,
-//         idToken: googleAuth.idToken,
-//       );
-
-//       final userCredential = await _auth.signInWithCredential(credential);
-//       final user = userCredential.user!;
-
-//       // Check if user exists in Firestore
-//       final userDoc = await _firestore.collection('users').doc(user.uid).get();
-
-//       if (!userDoc.exists) {
-//         // Show dialog to choose role
-//         _showRoleSelectionDialog(context, user);
-//       } else {
-//         await _loadUserData(user);
-//         _showSnackBar(context, 'Sign-in successful');
-//         Navigator.pushReplacementNamed(context, '/main');
-//       }
-//     } catch (e) {
-//       _handleError('Google Sign-In failed: $e', context);
-//     }
-//   }
-
-//   void _showRoleSelectionDialog(BuildContext context, User user) {
-//     showDialog(
-//       context: context,
-//       barrierDismissible: false,
-//       builder: (ctx) => AlertDialog(
-//         title: const Text('Choose Your Role'),
-//         content: Column(
-//           mainAxisSize: MainAxisSize.min,
-//           children: [
-//             ListTile(
-//               leading: const Icon(Icons.school),
-//               title: const Text('Student'),
-//               onTap: () async {
-//                 Navigator.pop(ctx);
-//                 await _completeGoogleSignUp(
-//                   context: context,
-//                   user: user,
-//                   role: UserRole.student,
-//                 );
-//               },
-//             ),
-//             ListTile(
-//               leading: const Icon(Icons.assistant),
-//               title: const Text('Assistant'),
-//               onTap: () async {
-//                 Navigator.pop(ctx);
-//                 await _completeGoogleSignUp(
-//                   context: context,
-//                   user: user,
-//                   role: UserRole.assistant,
-//                 );
-//               },
-//             ),
-//             ListTile(
-//               leading: const Icon(Icons.medical_services),
-//               title: const Text('Doctor'),
-//               onTap: () async {
-//                 Navigator.pop(ctx);
-//                 await _completeGoogleSignUp(
-//                   context: context,
-//                   user: user,
-//                   role: UserRole.doctor,
-//                 );
-//               },
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-
-//   Future<void> _completeGoogleSignUp({
+//   // دالة تحديث البروفايل
+//   Future<void> updateUserProfile({
+//     required String fullName,
+//     required String bio,
+//     String? university,
+//     String? position,
+//     String? department,
+//     String? photoUrl,
 //     required BuildContext context,
-//     required User user,
-//     required UserRole role,
 //   }) async {
 //     emit(state.copyWith(status: AuthStatus.loading));
 
 //     try {
-//       if (role == UserRole.student) {
-//         // Show student additional fields dialog
-//         _showStudentInfoDialog(context, user);
+//       final user = _auth.currentUser;
+//       if (user == null) throw Exception('No user logged in');
+
+//       final updateData = <String, dynamic>{
+//         'fullName': fullName,
+//         'bio': bio,
+//       };
+
+//       if (state.userModel?.role == UserRole.student) {
+//         if (university != null) updateData['university'] = university;
 //       } else {
-//         // Show educator additional fields dialog
-//         _showEducatorInfoDialog(context, user, role);
+//         if (position != null) updateData['position'] = position;
+//         if (department != null) updateData['department'] = department;
 //       }
+
+//       if (photoUrl != null && 
+//           photoUrl.isNotEmpty && 
+//           !photoUrl.startsWith('http') && 
+//           photoUrl != state.userModel?.photoUrl) {
+//         updateData['photoUrl'] = photoUrl;
+//       }
+
+//       await _firestore.collection('users').doc(user.uid).update(updateData);
+      
+//       await _loadUserData(user);
+      
+//       _showSnackBar(context, 'Profile updated successfully!');
 //     } catch (e) {
-//       _handleError('Failed to complete sign up: $e', context);
+//       _handleError('Failed to update profile: $e', context);
 //     }
-//   }
-
-//   void _showStudentInfoDialog(BuildContext context, User user) {
-//     final nameController = TextEditingController(text: user.displayName ?? '');
-//     final universityController = TextEditingController();
-//     final facultyController = TextEditingController();
-//     final trackController = TextEditingController();
-
-//     showDialog(
-//       context: context,
-//       barrierDismissible: false,
-//       builder: (ctx) => AlertDialog(
-//         title: const Text('Complete Student Info'),
-//         content: SingleChildScrollView(
-//           child: Column(
-//             mainAxisSize: MainAxisSize.min,
-//             children: [
-//               TextField(
-//                 controller: nameController,
-//                 decoration: const InputDecoration(labelText: 'Full Name'),
-//               ),
-//               TextField(
-//                 controller: universityController,
-//                 decoration: const InputDecoration(labelText: 'University'),
-//               ),
-//               TextField(
-//                 controller: facultyController,
-//                 decoration: const InputDecoration(labelText: 'Faculty'),
-//               ),
-//               TextField(
-//                 controller: trackController,
-//                 decoration: const InputDecoration(labelText: 'Track'),
-//               ),
-//             ],
-//           ),
-//         ),
-//         actions: [
-//           TextButton(
-//             onPressed: () => Navigator.pop(ctx),
-//             child: const Text('Cancel'),
-//           ),
-//           ElevatedButton(
-//             onPressed: () async {
-//               Navigator.pop(ctx);
-              
-//               final userModel = UserModel(
-//                 uid: user.uid,
-//                 email: user.email!,
-//                 fullName: nameController.text,
-//                 role: UserRole.student,
-//                 photoUrl: user.photoURL,
-//                 university: universityController.text,
-//                 faculty: facultyController.text,
-//                 track: trackController.text,
-//                 bio: 'Hello, I am ${nameController.text}',
-//               );
-
-//               await _firestore.collection('users').doc(user.uid).set(userModel.toMap());
-//               await _loadUserData(user);
-              
-//               if (context.mounted) {
-//                 _showSnackBar(context, 'Sign-up completed!');
-//                 Navigator.pushReplacementNamed(context, '/main');
-//               }
-//             },
-//             child: const Text('Save'),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   void _showEducatorInfoDialog(BuildContext context, User user, UserRole role) {
-//     final nameController = TextEditingController(text: user.displayName ?? '');
-//     final positionController = TextEditingController();
-//     final departmentController = TextEditingController();
-
-//     showDialog(
-//       context: context,
-//       barrierDismissible: false,
-//       builder: (ctx) => AlertDialog(
-//         title: Text('Complete ${role.value} Info'),
-//         content: SingleChildScrollView(
-//           child: Column(
-//             mainAxisSize: MainAxisSize.min,
-//             children: [
-//               TextField(
-//                 controller: nameController,
-//                 decoration: const InputDecoration(labelText: 'Full Name'),
-//               ),
-//               TextField(
-//                 controller: positionController,
-//                 decoration: InputDecoration(
-//                   labelText: role == UserRole.doctor ? 'Position' : 'Role',
-//                 ),
-//               ),
-//               TextField(
-//                 controller: departmentController,
-//                 decoration: const InputDecoration(labelText: 'Department'),
-//               ),
-//             ],
-//           ),
-//         ),
-//         actions: [
-//           TextButton(
-//             onPressed: () => Navigator.pop(ctx),
-//             child: const Text('Cancel'),
-//           ),
-//           ElevatedButton(
-//             onPressed: () async {
-//               Navigator.pop(ctx);
-              
-//               final userModel = UserModel(
-//                 uid: user.uid,
-//                 email: user.email!,
-//                 fullName: nameController.text,
-//                 role: role,
-//                 photoUrl: user.photoURL,
-//                 position: positionController.text,
-//                 department: departmentController.text,
-//                 bio: 'Hello, I am ${nameController.text}, ${positionController.text}',
-//               );
-
-//               await _firestore.collection('users').doc(user.uid).set(userModel.toMap());
-//               await _loadUserData(user);
-              
-//               if (context.mounted) {
-//                 _showSnackBar(context, 'Sign-up completed!');
-//                 Navigator.pushReplacementNamed(context, '/main');
-//               }
-//             },
-//             child: const Text('Save'),
-//           ),
-//         ],
-//       ),
-//     );
 //   }
 
 //   // Logout
 //   Future<void> logout() async {
 //     await _auth.signOut();
-//     await GoogleSignIn().signOut();
+//     _tempSelectedRole = null;
 //     emit(state.copyWith(status: AuthStatus.unauthenticated));
 //   }
 
@@ -554,6 +356,10 @@
 //   }
 // }
 
+
+
+
+
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -623,8 +429,8 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  // Sign up for students
-  Future<void> signUpStudent({
+  // Sign up for users (كانت students)
+  Future<void> signUpUser({
     required String email,
     required String password,
     required String fullName,
@@ -648,7 +454,7 @@ class AuthCubit extends Cubit<AuthState> {
         uid: user.uid,
         email: email,
         fullName: fullName,
-        role: UserRole.student,
+        role: UserRole.user,
         university: university,
         faculty: faculty,
         track: track,
@@ -675,12 +481,12 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  // Sign up for doctors/assistants
+  // Sign up for supervisors/assistants (كانت doctors/assistants)
   Future<void> signUpEducator({
     required String email,
     required String password,
     required String fullName,
-    required UserRole role,
+    required UserRole role, // يمكن أن يكون supervisor أو assistant
     required String position,
     required String department,
     String? photoUrl,
@@ -783,7 +589,7 @@ class AuthCubit extends Cubit<AuthState> {
         'bio': bio,
       };
 
-      if (state.userModel?.role == UserRole.student) {
+      if (state.userModel?.role == UserRole.user) {
         if (university != null) updateData['university'] = university;
       } else {
         if (position != null) updateData['position'] = position;

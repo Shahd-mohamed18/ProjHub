@@ -1,27 +1,69 @@
-// // lib/models/user_model.dart
-// import 'package:firebase_auth/firebase_auth.dart';
-// import 'package:onboard/models/user_model.dart';
+
+
+
+// import 'package:cloud_firestore/cloud_firestore.dart';
+
+// enum UserRole {
+//   student,
+//   assistant,
+//   doctor,
+// }
+
+// extension UserRoleExtension on UserRole {
+//   String get value {
+//     switch (this) {
+//       case UserRole.student:
+//         return 'student';
+//       case UserRole.assistant:
+//         return 'assistant';
+//       case UserRole.doctor:
+//         return 'doctor';
+//     }
+//   }
+
+//   static UserRole fromString(String role) {
+//     switch (role) {
+//       case 'student':
+//         return UserRole.student;
+//       case 'assistant':
+//         return UserRole.assistant;
+//       case 'doctor':
+//         return UserRole.doctor;
+//       default:
+//         return UserRole.student;
+//     }
+//   }
+// }
 
 // class UserModel {
 //   final String uid;
 //   final String email;
 //   final String fullName;
-//   final String university;
-//   final String faculty;
-//   final String track;
+//   final UserRole role;
 //   final String? photoUrl;
 //   final String? bio;
   
+//   // Student specific fields
+//   final String? university;
+//   final String? faculty;
+//   final String? track;
+  
+//   // Doctor/Assistant specific fields
+//   final String? position;
+//   final String? department;
 
 //   UserModel({
 //     required this.uid,
 //     required this.email,
 //     required this.fullName,
-//     required this.university,
-//     required this.faculty,
-//     required this.track,
+//     required this.role,
 //     this.photoUrl,
 //     this.bio,
+//      this.university,
+//     this.faculty,
+//     this.track,
+//     this.position,
+//     this.department,
 //   });
 
 //   Map<String, dynamic> toMap() {
@@ -29,11 +71,15 @@
 //       'uid': uid,
 //       'email': email,
 //       'fullName': fullName,
+//       'role': role.value,
+//       'photoUrl': photoUrl,
+//       'bio': bio ?? 'No bio yet',
 //       'university': university,
 //       'faculty': faculty,
 //       'track': track,
-//       'photoUrl': photoUrl,
-//       'bio': bio ?? 'No bio yet',
+//       'position': position,
+//       'department': department,
+//       'createdAt': FieldValue.serverTimestamp(),
 //     };
 //   }
 
@@ -42,47 +88,51 @@
 //       uid: uid,
 //       email: map['email'] ?? '',
 //       fullName: map['fullName'] ?? '',
-//       university: map['university'] ?? '',
-//       faculty: map['faculty'] ?? '',
-//       track: map['track'] ?? '',
+//       role: UserRoleExtension.fromString(map['role'] ?? 'student'),
 //       photoUrl: map['photoUrl'],
 //       bio: map['bio'] ?? 'No bio yet',
+//       university: map['university'],
+//       faculty: map['faculty'],
+//       track: map['track'],
+//       position: map['position'],
+//       department: map['department'],
 //     );
 //   }
 // }
 
 
 
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum UserRole {
-  student,
+  user,        // كان student
   assistant,
-  doctor,
+  supervisor,  // كان doctor
 }
 
 extension UserRoleExtension on UserRole {
   String get value {
     switch (this) {
-      case UserRole.student:
-        return 'student';
+      case UserRole.user:
+        return 'user';
       case UserRole.assistant:
         return 'assistant';
-      case UserRole.doctor:
-        return 'doctor';
+      case UserRole.supervisor:
+        return 'supervisor';
     }
   }
 
   static UserRole fromString(String role) {
     switch (role) {
-      case 'student':
-        return UserRole.student;
+      case 'user':
+        return UserRole.user;
       case 'assistant':
         return UserRole.assistant;
-      case 'doctor':
-        return UserRole.doctor;
+      case 'supervisor':
+        return UserRole.supervisor;
       default:
-        return UserRole.student;
+        return UserRole.user;
     }
   }
 }
@@ -95,12 +145,12 @@ class UserModel {
   final String? photoUrl;
   final String? bio;
   
-  // Student specific fields
+  // User specific fields (كانت student)
   final String? university;
   final String? faculty;
   final String? track;
   
-  // Doctor/Assistant specific fields
+  // Supervisor/Assistant specific fields (كانت doctor/assistant)
   final String? position;
   final String? department;
 
@@ -111,7 +161,7 @@ class UserModel {
     required this.role,
     this.photoUrl,
     this.bio,
-     this.university,
+    this.university,
     this.faculty,
     this.track,
     this.position,
@@ -140,7 +190,7 @@ class UserModel {
       uid: uid,
       email: map['email'] ?? '',
       fullName: map['fullName'] ?? '',
-      role: UserRoleExtension.fromString(map['role'] ?? 'student'),
+      role: UserRoleExtension.fromString(map['role'] ?? 'user'),
       photoUrl: map['photoUrl'],
       bio: map['bio'] ?? 'No bio yet',
       university: map['university'],
