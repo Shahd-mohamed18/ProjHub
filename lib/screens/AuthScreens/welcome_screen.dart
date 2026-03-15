@@ -1,5 +1,9 @@
 // import 'package:flutter/material.dart';
-// import 'package:onboard/screens/login_screen.dart';
+// import 'package:flutter_bloc/flutter_bloc.dart';
+// import 'package:onboard/cubits/auth/auth_cubit.dart';
+// import 'package:onboard/models/user_model.dart';
+// import 'package:onboard/screens/AuthScreens/login_screen.dart';
+
 // import 'package:onboard/widgets/custom_welcome_widget.dart';
 
 // class WelcomeScreen extends StatelessWidget {
@@ -34,77 +38,105 @@
 //                 child: Column(
 //                   mainAxisAlignment: MainAxisAlignment.center,
 //                   children: [
-//                     Text(
+//                     const Text(
 //                       'Welcome To',
 //                       style: TextStyle(
 //                         fontWeight: FontWeight.bold,
 //                         fontSize: 25,
 //                       ),
 //                     ),
-//                     Text(
+//                     const Text(
 //                       'ProjHub',
 //                       style: TextStyle(
 //                         fontWeight: FontWeight.bold,
 //                         fontSize: 25,
 //                       ),
 //                     ),
-//                     Text(
+//                     const Text(
 //                       'Where Innovation Meets Collaboration',
 //                       style: TextStyle(
 //                         fontWeight: FontWeight.bold,
 //                         fontSize: 16,
 //                       ),
 //                     ),
-//                     SizedBox(height: 60),
+//                     const SizedBox(height: 60),
 
+//                     // Student
 //                     GestureDetector(
 //                       onTap: () {
+//                         context.read<AuthCubit>().setTempRole(UserRole.student);
 //                         Navigator.push(
 //                           context,
 //                           MaterialPageRoute(
-//                             builder: (context) => LoginScreen(),
+//                             builder: (context) => const LoginScreen(),
 //                           ),
 //                         );
 //                       },
 //                       child: CustomWelcomeWidget(
-//                         title: 'User',
+//                         title: 'Student',
 //                         subtitle1: 'share projects',
 //                         subtitle2: 'and collaborate',
 //                         imagePath: 'assets/images/grade icon.jpg',
 //                       ),
 //                     ),
 
-//                     SizedBox(height: 15),
+//                     const SizedBox(height: 15),
 
-//                     CustomWelcomeWidget(
-//                       title: 'Supervisor',
-//                       subtitle1: 'manage teams',
-//                       subtitle2: 'and progress',
-//                       imagePath:
-//                           'assets/images/6751dd9a9d57790ad08dd50652e2aacbaac8513b.png',
-//                       color: Color(0Xff9747FF),
+//                     // Doctor
+//                     GestureDetector(
+//                       onTap: () {
+//                         context.read<AuthCubit>().setTempRole(UserRole.doctor);
+//                         Navigator.push(
+//                           context,
+//                           MaterialPageRoute(
+//                             builder: (context) => const LoginScreen(),
+//                           ),
+//                         );
+//                       },
+//                       child: CustomWelcomeWidget(
+//                         title: 'Doctor',
+//                         subtitle1: 'supervise projects,',
+//                         subtitle2: 'manage teams',
+//                         imagePath:
+//                             'assets/images/6751dd9a9d57790ad08dd50652e2aacbaac8513b.png',
+//                         color: const Color(0Xff9747FF),
+//                       ),
 //                     ),
 
-//                     SizedBox(height: 15),
+//                     const SizedBox(height: 15),
 
-//                     CustomWelcomeWidget(
-//                       title: 'Assistant',
-//                       subtitle1: 'support,help,',
-//                       subtitle2: 'and manage',
-//                       imagePath:
-//                           'assets/images/33d002cbe644eae4c317e983ea7ad2655cbd135d.png',
-//                       color: Color(0xffE9EC4D),
+//                     // Assistant
+//                     GestureDetector(
+//                       onTap: () {
+//                         context.read<AuthCubit>().setTempRole(
+//                           UserRole.assistant,
+//                         );
+//                         Navigator.push(
+//                           context,
+//                           MaterialPageRoute(
+//                             builder: (context) => const LoginScreen(),
+//                           ),
+//                         );
+//                       },
+//                       child: CustomWelcomeWidget(
+//                         title: 'Assistant',
+//                         subtitle1: 'support, help,',
+//                         subtitle2: 'and manage',
+//                         imagePath:
+//                             'assets/images/33d002cbe644eae4c317e983ea7ad2655cbd135d.png',
+//                         color: const Color(0xffE9EC4D),
+//                       ),
 //                     ),
 
-//                     SizedBox(height: 30),
+//                     const SizedBox(height: 30),
 
-//                     Text(
+//                     const Text(
 //                       'By Continuing, You Agree Our Terms',
 //                       style: TextStyle(
 //                         color: Color.fromARGB(255, 89, 121, 137),
 //                       ),
 //                     ),
-//                     Text(
+//                     const Text(
 //                       '& Privacy Policy',
 //                       style: TextStyle(
 //                         color: Color.fromARGB(255, 89, 121, 137),
@@ -121,12 +153,16 @@
 //   }
 // }
 
+
+
+
+
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/auth/auth_cubit.dart';
 import 'package:onboard/models/user_model.dart';
 import 'package:onboard/screens/AuthScreens/login_screen.dart';
-
 import 'package:onboard/widgets/custom_welcome_widget.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -184,10 +220,10 @@ class WelcomeScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 60),
 
-                    // Student
+                    // User (كان Student)
                     GestureDetector(
                       onTap: () {
-                        context.read<AuthCubit>().setTempRole(UserRole.student);
+                        context.read<AuthCubit>().setTempRole(UserRole.user);
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -196,7 +232,7 @@ class WelcomeScreen extends StatelessWidget {
                         );
                       },
                       child: CustomWelcomeWidget(
-                        title: 'Student',
+                        title: 'User',
                         subtitle1: 'share projects',
                         subtitle2: 'and collaborate',
                         imagePath: 'assets/images/grade icon.jpg',
@@ -205,10 +241,10 @@ class WelcomeScreen extends StatelessWidget {
 
                     const SizedBox(height: 15),
 
-                    // Doctor
+                    // Supervisor (كان Doctor)
                     GestureDetector(
                       onTap: () {
-                        context.read<AuthCubit>().setTempRole(UserRole.doctor);
+                        context.read<AuthCubit>().setTempRole(UserRole.supervisor);
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -217,7 +253,7 @@ class WelcomeScreen extends StatelessWidget {
                         );
                       },
                       child: CustomWelcomeWidget(
-                        title: 'Doctor',
+                        title: 'Supervisor',
                         subtitle1: 'supervise projects,',
                         subtitle2: 'manage teams',
                         imagePath:

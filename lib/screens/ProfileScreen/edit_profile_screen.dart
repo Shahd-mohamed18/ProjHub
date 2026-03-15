@@ -376,7 +376,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     final authCubit = context.read<AuthCubit>();
     
-    if (widget.role == UserRole.student) {
+    if (widget.role == UserRole.user) {
       await authCubit.updateUserProfile(
         fullName: nameController.text.trim(),
         bio: bioController.text.trim(),
@@ -402,7 +402,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isStudent = widget.role == UserRole.student;
+    final bool isStudent = widget.role == UserRole.user;
 
     return Scaffold(
       body: Container(
@@ -518,7 +518,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
             ] else ...[
               _buildField(
-                label: widget.role == UserRole.doctor ? 'Position' : 'Role',
+                label: widget.role == UserRole.supervisor ? 'Position' : 'Role',
                 controller: positionController,
                 icon: Icons.badge_outlined,
               ),
