@@ -1,26 +1,25 @@
+
+
+
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/auth/auth_cubit.dart';
 import 'package:onboard/cubits/project/project_cubit.dart';
 import 'package:onboard/cubits/chat/chat_cubit.dart';
+import 'package:onboard/cubits/teams/teams_cubit.dart'; // إضافة الاستيراد
 import 'package:onboard/core/theme/app_theme.dart';
 import 'package:onboard/screens/AuthScreens/Sign_up_screen.dart';
 import 'package:onboard/screens/AuthScreens/login_screen.dart';
 import 'package:onboard/screens/ProfileScreen/profile_screen.dart';
-
 import 'package:onboard/screens/main_layout_navbar.dart';
-
 import 'package:onboard/screens/onboarding_screen.dart';
 import 'package:onboard/screens/projectScreens/add_project_screen.dart';
 import 'package:onboard/screens/projectScreens/project_screen.dart';
 import 'package:onboard/screens/AuthScreens/varification_email.dart';
-
 import 'package:onboard/screens/AuthScreens/welcome_screen.dart';
-
 import 'package:onboard/screens/AuthScreens/forget_password_screen.dart';
 import 'package:onboard/screens/community/community_screen.dart';
-
 import 'firebase_options.dart';
 
 void main() async {
@@ -42,6 +41,7 @@ class MyApp extends StatelessWidget {
           create: (context) => ProjectCubit()..loadProjects(),
         ),
         BlocProvider<ChatCubit>(create: (context) => ChatCubit()),
+        BlocProvider<TeamsCubit>(create: (context) => TeamsCubit()), // إضافة TeamsCubit
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
