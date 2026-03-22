@@ -7,9 +7,10 @@ import 'package:onboard/models/TaskModels/comment_model.dart';
 import 'package:onboard/models/CommunityModels/post_model.dart';
 
 abstract class ITaskRepository {
-  Future<List<TaskModel>> getPendingTasks();
-  Future<List<CompletedTaskModel>> getCompletedTasks();
-  Future<List<TeamTaskModel>> getTeamTasks();
+  // ✅ userId للطالب عشان يشوف تاسكاته بس
+  Future<List<TaskModel>> getPendingTasks({String? userId});
+  Future<List<CompletedTaskModel>> getCompletedTasks({String? userId});
+  Future<List<TeamTaskModel>> getTeamTasks({String? teamId});
   Future<List<FeedbackModel>> getFeedbackForTask(String taskId);
   Future<List<CommentModel>> getCommentsForTask(String taskId);
   Future<CommentModel> addComment({
@@ -23,4 +24,6 @@ abstract class ITaskRepository {
     required List<String> filePaths,
   });
   Future<PostModel?> getLatestPost();
+  // ✅ للدكتور عشان يشوف التاسكات اللي هو عملها
+  Future<List<TaskModel>> getTasksBySupervisor(String supervisorId);
 }

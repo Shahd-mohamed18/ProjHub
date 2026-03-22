@@ -5,6 +5,7 @@ import 'package:onboard/models/TeamModels/team_model.dart';
 import 'package:onboard/models/TeamModels/team_member.dart';
 import 'package:onboard/models/user_model.dart';
 import 'package:onboard/screens/chatScreens/chat_screen.dart';
+import 'package:onboard/screens/supervisorScreens/create_task_screen.dart';
 
 class TeamDetailsScreen extends StatelessWidget {
   final TeamModel team;
@@ -353,9 +354,17 @@ class TeamDetailsScreen extends StatelessWidget {
                                       if (canAddTask)
                                         GestureDetector(
                                           onTap: () {
-                                            // TODO: Add Task
-                                            print('Add Task clicked by ${isSupervisor ? "Supervisor" : "Assistant"}');
-                                          },
+                                    Navigator.push(
+                                  context,
+                                       MaterialPageRoute(
+                                        builder: (_) => CreateTaskScreen(
+                                    supervisorId: team.supervisorId,
+                                  teamId: team.id,
+                                    teamMembers: team.members,
+                                           ),
+                                           ),
+                                            );
+                                            },
                                           child: const Text(
                                             '+ Add Task',
                                             textAlign: TextAlign.center,

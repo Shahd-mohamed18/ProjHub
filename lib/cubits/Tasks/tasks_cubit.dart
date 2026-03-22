@@ -11,12 +11,13 @@ class TasksCubit extends Cubit<TasksState> {
 
   TasksCubit(this._repository) : super(const TasksInitial());
 
-  Future<void> loadTasks() async {
+  // ✅ بنبعت userId عشان الطالب يشوف بس تاسكاته
+  Future<void> loadTasks({String? userId}) async {
     emit(const TasksLoading());
     try {
       final results = await Future.wait([
-        _repository.getPendingTasks(),
-        _repository.getCompletedTasks(),
+        _repository.getPendingTasks(userId: userId),
+        _repository.getCompletedTasks(userId: userId),
         _repository.getTeamTasks(),
       ]);
 
@@ -30,11 +31,12 @@ class TasksCubit extends Cubit<TasksState> {
     }
   }
 
-  Future<void> refreshTasks() => loadTasks();
+  Future<void> refreshTasks({String? userId}) => loadTasks(userId: userId);
 
   Future<void> submitTask({
     required String taskId,
     required List<String> filePaths,
+    String? userId,
   }) async {
     final currentState = state;
     emit(const TaskSubmitting());
@@ -43,10 +45,9 @@ class TasksCubit extends Cubit<TasksState> {
         taskId: taskId,
         filePaths: filePaths,
       );
-
       if (success) {
         emit(TaskSubmitted(taskId));
-        await loadTasks();
+        await loadTasks(userId: userId);
       } else {
         emit(const TaskSubmitError('Submission failed. Please try again.'));
         if (currentState is TasksLoaded) emit(currentState);

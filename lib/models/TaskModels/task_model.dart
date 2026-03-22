@@ -1,36 +1,82 @@
-// lib/models/task_model.dart
+// lib/models/TaskModels/task_model.dart
 import 'package:intl/intl.dart';
 
 class TaskModel {
   final String id;
   final String title;
-  final String from; // 'Supervisor' | 'Assistant'
+  final String from;
   final DateTime dueDate;
   final String? description;
-  final List<Map<String, String>>? myAttachments;
+  final String teamId;
+  final bool isCompleted;
+  final List<String> assignedTo;
+  final String supervisorId;
+  final List<Map<String, String>>? supervisorAttachments;
+  final List<Map<String, String>>? studentAttachments;
 
   const TaskModel({
     required this.id,
     required this.title,
     required this.from,
     required this.dueDate,
+    required this.teamId,
+    required this.supervisorId,
+    this.assignedTo = const [],
     this.description,
-    this.myAttachments,
+    this.supervisorAttachments,
+    this.studentAttachments,
+    this.isCompleted = false,
   });
 
   String get formattedDueDate => DateFormat('MMM dd, yyyy').format(dueDate);
 
-  // ✅ جاهز للـ API
+  bool isAssignedTo(String userId) => assignedTo.contains(userId);
+
+  TaskModel copyWith({
+    String? id,
+    String? title,
+    String? from,
+    DateTime? dueDate,
+    String? teamId,
+    String? supervisorId,
+    List<String>? assignedTo,
+    String? description,
+    List<Map<String, String>>? supervisorAttachments,
+    List<Map<String, String>>? studentAttachments,
+    bool? isCompleted,
+  }) {
+    return TaskModel(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      from: from ?? this.from,
+      dueDate: dueDate ?? this.dueDate,
+      teamId: teamId ?? this.teamId,
+      supervisorId: supervisorId ?? this.supervisorId,
+      assignedTo: assignedTo ?? this.assignedTo,
+      description: description ?? this.description,
+      supervisorAttachments: supervisorAttachments ?? this.supervisorAttachments,
+      studentAttachments: studentAttachments ?? this.studentAttachments,
+      isCompleted: isCompleted ?? this.isCompleted,
+    );
+  }
+
   factory TaskModel.fromJson(Map<String, dynamic> json) {
     return TaskModel(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      from: json['from'] as String,
-      dueDate: DateTime.parse(json['due_date'] as String),
-      description: json['description'] as String?,
-      myAttachments: (json['attachments'] as List<dynamic>?)
+      id: json['id'],
+      title: json['title'],
+      from: json['from'],
+      dueDate: DateTime.parse(json['dueDate']),
+      teamId: json['teamId'] ?? '',
+      supervisorId: json['supervisorId'] ?? '',
+      assignedTo: List<String>.from(json['assignedTo'] ?? []),
+      description: json['description'],
+      supervisorAttachments: (json['supervisorAttachments'] as List<dynamic>?)
           ?.map((e) => Map<String, String>.from(e as Map))
           .toList(),
+      studentAttachments: (json['studentAttachments'] as List<dynamic>?)
+          ?.map((e) => Map<String, String>.from(e as Map))
+          .toList(),
+      isCompleted: json['isCompleted'] ?? false,
     );
   }
 
@@ -38,38 +84,75 @@ class TaskModel {
         'id': id,
         'title': title,
         'from': from,
-        'due_date': dueDate.toIso8601String(),
+        'dueDate': dueDate.toIso8601String(),
+        'teamId': teamId,
+        'supervisorId': supervisorId,
+        'assignedTo': assignedTo,
         'description': description,
-        'attachments': myAttachments,
+        'supervisorAttachments': supervisorAttachments,
+        'studentAttachments': studentAttachments,
+        'isCompleted': isCompleted,
       };
 
-  // ✅ Mock Data مؤقتة - هتتشال لما الـ API يجهز
-  static List<TaskModel> get mockTasks => [
-        TaskModel(
-          id: 'task_001',
-          title: 'UI Design Review',
-          from: 'Supervisor',
-          dueDate: DateTime(2025, 8, 20),
-          description:
-              'Review the current UI designs and provide feedback on the color scheme, typography, and overall layout consistency.',
-          myAttachments: [],
-        ),
-        TaskModel(
-          id: 'task_002',
-          title: 'Backend Integration',
-          from: 'Assistant',
-          dueDate: DateTime(2025, 8, 25),
-          description:
-              'Integrate the Flutter app with the .NET backend APIs for authentication and task management.',
-          myAttachments: [],
-        ),
-        TaskModel(
-          id: 'task_003',
-          title: 'Testing & Documentation',
-          from: 'Supervisor',
-          dueDate: DateTime(2025, 9, 1),
-          description: 'Write unit tests and document all public APIs.',
-          myAttachments: [],
-        ),
-      ];
+  // ✅ Mock tasks - IDs تتطابق مع TeamsCubit members IDs
+  static final List<TaskModel> _tasks = [
+    TaskModel(
+      id: 'task_001',
+      title: 'UI Design Review',
+      from: 'Supervisor',
+      dueDate: DateTime(2025, 8, 20),
+      teamId: '1',
+      supervisorId: 'supervisor_1',
+      assignedTo: ['m1', 'm2'],
+      description: 'Review the current UI designs and provide feedback.',
+      supervisorAttachments: [
+        {'name': 'design_guidelines.pdf', 'type': 'pdf'},
+      ],
+      studentAttachments: [],
+      isCompleted: false,
+    ),
+    TaskModel(
+      id: 'task_002',
+      title: 'Backend Integration',
+      from: 'Supervisor',
+      dueDate: DateTime(2025, 8, 25),
+      teamId: '1',
+      supervisorId: 'supervisor_1',
+      assignedTo: ['m3', 'm4'],
+      description: 'Integrate Flutter app with .NET backend APIs.',
+      supervisorAttachments: [],
+      studentAttachments: [],
+      isCompleted: false,
+    ),
+    TaskModel(
+      id: 'task_003',
+      title: 'Project Documentation',
+      from: 'Supervisor',
+      dueDate: DateTime(2025, 9, 1),
+      teamId: '2',
+      supervisorId: 'supervisor_1',
+      assignedTo: ['m3', 'm4', 'm6'],
+      description: 'Write technical documentation for all modules.',
+      supervisorAttachments: [],
+      studentAttachments: [
+        {'name': 'docs_v1.pdf', 'type': 'pdf'},
+      ],
+      isCompleted: true,
+    ),
+  ];
+
+  static List<TaskModel> get mockTasks => List.from(_tasks);
+
+  // ✅ submitTask بيحدث الـ task في الـ list
+  static void markAsCompleted(String taskId, List<String> filePaths) {
+    final index = _tasks.indexWhere((t) => t.id == taskId);
+    if (index != -1) {
+      _tasks[index] = _tasks[index].copyWith(
+        isCompleted: true,
+        studentAttachments: filePaths
+            .map((p) => {'name': p.split('/').last, 'type': p.split('.').last})
+            .toList(),
+      );
+    }
+  }
 }

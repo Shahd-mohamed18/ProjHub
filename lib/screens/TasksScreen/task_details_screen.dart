@@ -1,10 +1,12 @@
-// lib/screens/task_details_screen.dart
+// lib/screens/TasksScreen/task_details_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:onboard/cubits/auth/auth_cubit.dart';
 import 'package:onboard/cubits/comments/comments_cubit.dart';
 import 'package:onboard/models/TaskModels/task_model.dart';
-import 'package:onboard/repositories/task_repository.dart';
+import 'package:onboard/models/user_model.dart';
 import 'package:onboard/screens/TasksScreen/submit_task_screen.dart';
+import 'package:onboard/screens/supervisorScreens/give_feedback_screen.dart';
 import 'package:onboard/widgets/tasks/task_details/attachment_item.dart';
 import 'package:onboard/widgets/tasks/task_details/comment_section.dart';
 import 'package:onboard/repositories/mock_task_repository.dart';
@@ -15,12 +17,12 @@ class TaskDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create: (_) => CommentsCubit(MockTaskRepository()),
-        ),
-      ],
+    final role = context.read<AuthCubit>().state.userModel?.role;
+    // ✅ الدكتور والأسيستنت يشوفوا نفس الـ view
+    final isSupervisor = role == UserRole.supervisor || role == UserRole.assistant;
+
+    return BlocProvider(
+      create: (_) => CommentsCubit(MockTaskRepository()),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Container(
@@ -44,11 +46,41 @@ class TaskDetailsScreen extends StatelessWidget {
                       const SizedBox(height: 24),
                       _buildDescriptionSection(),
                       const SizedBox(height: 24),
-                      _buildAttachmentsSection(),
+
+                      // ✅ فايل الدكتور - يظهر للكل
+                      if ((task.supervisorAttachments ?? []).isNotEmpty) ...[
+                        _buildAttachmentsSection(
+                          title: 'Attachment',
+                          attachments: task.supervisorAttachments!,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
+                      // ✅ فايل الطالب - يظهر للدكتور بس
+                      if (isSupervisor && (task.studentAttachments ?? []).isNotEmpty) ...[
+                        _buildAttachmentsSection(
+                          title: 'Student Submission',
+                          attachments: task.studentAttachments!,
+                          accentColor: const Color(0xFF00A63D),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
+                      // ✅ Upload button - للطالب بس ولو مش completed
+                      if (!isSupervisor && !task.isCompleted) ...[
+                        _buildUploadButton(context),
+                        const SizedBox(height: 16),
+                      ],
+
+                      // ✅ Feedback button - للدكتور بس ولو completed
+                      if (isSupervisor && task.isCompleted) ...[
+                        _buildFeedbackButton(context),
+                        const SizedBox(height: 16),
+                      ],
+
                       const SizedBox(height: 16),
-                      _buildUploadButton(context),
-                      const SizedBox(height: 32),
                       CommentSection(taskId: task.id),
+                      const SizedBox(height: 20),
                     ],
                   ),
                 ),
@@ -94,28 +126,41 @@ class TaskDetailsScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            task.title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-          ),
+          Text(task.title,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
           Row(children: [
             const Icon(Icons.person_outline, size: 16, color: Colors.grey),
             const SizedBox(width: 4),
-            Text(
-              'From: ${task.from}',
-              style: const TextStyle(fontSize: 15, color: Colors.grey, fontWeight: FontWeight.w500),
-            ),
+            Text('From: ${task.from}',
+                style: const TextStyle(fontSize: 15, color: Colors.grey, fontWeight: FontWeight.w500)),
           ]),
           const SizedBox(height: 4),
           Row(children: [
             const Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey),
             const SizedBox(width: 4),
-            Text(
-              'Due ${task.formattedDueDate}',
-              style: const TextStyle(fontSize: 15, color: Colors.grey, fontWeight: FontWeight.w500),
-            ),
+            Text('Due ${task.formattedDueDate}',
+                style: const TextStyle(fontSize: 15, color: Colors.grey, fontWeight: FontWeight.w500)),
           ]),
+          const SizedBox(height: 8),
+          // ✅ Status badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: task.isCompleted
+                  ? const Color(0xFF00A63D).withOpacity(0.1)
+                  : const Color(0xFFFF9800).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              task.isCompleted ? '✅ Completed' : '⏳ Pending',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: task.isCompleted ? const Color(0xFF00A63D) : const Color(0xFFFF9800),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -125,10 +170,8 @@ class TaskDetailsScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Description',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-        ),
+        const Text('Description',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
         const SizedBox(height: 12),
         Container(
           width: double.infinity,
@@ -139,53 +182,41 @@ class TaskDetailsScreen extends StatelessWidget {
           ),
           child: Text(
             task.description ?? 'No description',
-            style: const TextStyle(color: Colors.grey,fontSize: 16, height: 1.6),
+            style: const TextStyle(color: Colors.grey, fontSize: 16, height: 1.6),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildAttachmentsSection() {
-    final attachments = task.myAttachments ?? [];
+  Widget _buildAttachmentsSection({
+    required String title,
+    required List<Map<String, String>> attachments,
+    Color accentColor = const Color(0xFF2196F3),
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Attachment',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-        ),
+        Text(title,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
         const SizedBox(height: 12),
-        if (attachments.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: const Center(
-              child: Text('No attachments yet',
-                  style: TextStyle(color: Colors.grey, fontSize: 16,fontWeight: FontWeight.w600)),
-            ),
-          )
-        else
-          ...attachments.map(
-            (f) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: AttachmentItem(
-                fileName: f['name']!,
-                fileType: f['type']!,
-                iconBackgroundColor: const Color(0xFF2196F3),
-                showDownloadButton: true, 
-                onDownload: () => debugPrint('Download ${f['name']}'),
-              ),
+        ...attachments.map(
+          (f) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: AttachmentItem(
+              fileName: f['name']!,
+              fileType: f['type']!,
+              iconBackgroundColor: accentColor,
+              showDownloadButton: true,
+              onDownload: () => debugPrint('Download ${f['name']}'),
             ),
           ),
+        ),
       ],
     );
   }
 
+  // ✅ للطالب - رفع الحل
   Widget _buildUploadButton(BuildContext context) {
     return Center(
       child: Container(
@@ -201,9 +232,7 @@ class TaskDetailsScreen extends StatelessWidget {
           child: InkWell(
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (_) => SubmitTaskScreen(task: task),
-              ),
+              MaterialPageRoute(builder: (_) => SubmitTaskScreen(task: task)),
             ),
             borderRadius: BorderRadius.circular(10),
             child: const Row(
@@ -211,10 +240,34 @@ class TaskDetailsScreen extends StatelessWidget {
               children: [
                 Icon(Icons.attach_file, size: 18, color: Colors.grey),
                 SizedBox(width: 8),
-                Text('Upload File', style: TextStyle(color: Colors.black87,fontSize: 16,fontWeight: FontWeight.w600)),
+                Text('Upload File',
+                    style: TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  // ✅ للدكتور - إعطاء Feedback بس لو completed
+  Widget _buildFeedbackButton(BuildContext context) {
+    return Center(
+      child: SizedBox(
+        width: 265,
+        height: 44,
+        child: ElevatedButton.icon(
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => GiveFeedbackScreen(task: task)),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF155DFC),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          icon: const Icon(Icons.feedback_outlined, color: Colors.white, size: 18),
+          label: const Text('Give Feedback',
+              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
         ),
       ),
     );
