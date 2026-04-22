@@ -1,7 +1,14 @@
 // lib/screens/community/create_post_screen.dart
+//
+// FIX: replaced hardcoded _currentUserId / _currentUserName constants
+// with values read from AuthCubit so the real Firebase UID and display
+// name are sent to the backend.
+
 import 'package:flutter/material.dart';
-import 'package:onboard/models/CommunityModels/post_model.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:onboard/cubits/auth/auth_cubit.dart';
 import 'package:onboard/cubits/community/community_cubit.dart';
+import 'package:onboard/models/CommunityModels/post_model.dart';
 
 class CreatePostScreen extends StatefulWidget {
   final CommunityCubit cubit;
@@ -20,15 +27,26 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   PostVisibility _visibility = PostVisibility.public;
   bool _isPosting = false;
 
-  // TODO: جيب دول من AuthCubit/UserModel لما الـ backend يجهز
-  static const String _currentUserId = 'current_user';
-  static const String _currentUserName = 'Marwa Mohamed';
-  static const String _currentUserInitial = 'M';
-
   @override
   void dispose() {
     _contentController.dispose();
     super.dispose();
+  }
+
+  // ✅ Read from AuthCubit — no hardcoded values
+  String _getUserId(BuildContext context) {
+    final userModel = context.read<AuthCubit>().state.userModel;
+    return userModel?.uid ?? '';
+  }
+
+  String _getUserName(BuildContext context) {
+    final userModel = context.read<AuthCubit>().state.userModel;
+    return userModel?.fullName ?? '';
+  }
+
+  String _getUserInitial(BuildContext context) {
+    final name = _getUserName(context);
+    return name.isNotEmpty ? name[0].toUpperCase() : '?';
   }
 
   String get _visibilityLabel {
@@ -136,21 +154,27 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       return;
     }
 
+    // ✅ Read real values from AuthCubit right before submitting
+    final userId = _getUserId(context);
+    final userName = _getUserName(context);
+    final userInitial = _getUserInitial(context);
+
+    print('📝 [CREATE POST] userId: $userId');
+    print('📝 [CREATE POST] userName: $userName');
+
     setState(() => _isPosting = true);
 
     try {
-      // ✅ بنمرر userId و userName عشان الـ repository يعرف مين بوست
       await widget.cubit.createPost(
         content: content,
         hashtags: _extractHashtags(content),
         visibility: _visibility,
-        userId: _currentUserId,
-        userName: _currentUserName,
-        userInitial: _currentUserInitial,
+        userId: userId,
+        userName: userName,
+        userInitial: userInitial,
       );
 
       if (mounted) {
-        // ✅ نرجع بدون result - الـ state اتحدث في الـ cubit مباشرة
         Navigator.pop(context);
       }
     } catch (e) {
@@ -165,6 +189,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ Read user info once for display in the header
+    final userName = _getUserName(context);
+    final userInitial = _getUserInitial(context);
+
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -186,7 +214,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             Expanded(
               child: Center(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.95),
@@ -204,7 +233,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _buildPostHeader(),
-                        _buildPostBody(),
+                        _buildPostBody(userName, userInitial),
                         _buildPostFooter(),
                       ],
                     ),
@@ -225,7 +254,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       decoration: const BoxDecoration(
         color: Colors.white,
         boxShadow: [
-          BoxShadow(color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 4)),
+          BoxShadow(
+              color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 4)),
         ],
       ),
       child: SafeArea(
@@ -271,7 +301,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
-  Widget _buildPostBody() {
+  Widget _buildPostBody(String userName, String userInitial) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -282,6 +312,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             children: [
               Row(
                 children: [
+                  // ✅ Avatar uses real initial
                   Container(
                     width: 40,
                     height: 40,
@@ -291,7 +322,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     ),
                     child: Center(
                       child: Text(
-                        _currentUserInitial,
+                        userInitial,
                         style: const TextStyle(
                           color: Color(0xFF2196F3),
                           fontSize: 14,
@@ -300,8 +331,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
+                  // ✅ Name uses real user name
                   Text(
-                    _currentUserName,
+                    userName.isNotEmpty ? userName : 'User',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -310,11 +342,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   ),
                 ],
               ),
-              // ✅ Visibility Picker
+              // Visibility picker
               GestureDetector(
                 onTap: _openVisibilityPicker,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(10),
@@ -361,11 +394,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               border: InputBorder.none,
             ),
           ),
-          // ✅ Visibility info banner
           if (_visibility != PostVisibility.public) ...[
             const SizedBox(height: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: _visibility == PostVisibility.onlyMe
                     ? const Color(0xFFFFF7ED)
@@ -412,7 +445,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           onPressed: _isPosting ? null : _submitPost,
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF2196F3),
-            disabledBackgroundColor: const Color(0xFF2196F3).withOpacity(0.5),
+            disabledBackgroundColor:
+                const Color(0xFF2196F3).withOpacity(0.5),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),

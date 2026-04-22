@@ -1,4 +1,7 @@
 // lib/repositories/mock_community_repository.dart
+//
+// CHANGE vs original: getPosts() has no parameters (matches updated interface).
+
 import 'package:onboard/models/CommunityModels/post_model.dart';
 import 'package:onboard/models/CommunityModels/community_comment_model.dart';
 import 'package:onboard/repositories/community_repository.dart';
@@ -6,6 +9,7 @@ import 'package:onboard/repositories/community_repository.dart';
 class MockCommunityRepository implements ICommunityRepository {
   final List<PostModel> _posts = List.from(PostModel.mockPosts);
 
+  // ✅ No parameters — matches ICommunityRepository.getPosts()
   @override
   Future<List<PostModel>> getPosts() async {
     await Future.delayed(const Duration(milliseconds: 500));

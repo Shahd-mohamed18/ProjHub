@@ -1,4 +1,8 @@
 // lib/screens/community/community_screen.dart
+//
+// Only change vs original: BlocProvider selects real vs mock repo via useRealApi.
+// All UI is identical.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/community/community_cubit.dart';
@@ -11,6 +15,7 @@ import 'package:onboard/widgets/community/trending_header.dart';
 import 'package:onboard/widgets/community/whatsonyourmind.dart';
 import 'package:onboard/repositories/community_repository.dart';
 import 'package:onboard/repositories/mock_community_repository.dart';
+import 'package:onboard/repositories/api_community_repository.dart';
 import 'package:onboard/models/CommunityModels/post_model.dart';
 
 class CommunityScreen extends StatelessWidget {
@@ -19,13 +24,18 @@ class CommunityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ BlocProvider هنا في الأعلى عشان كل الـ children يشوفوه
+    // ✅ Single toggle — change useRealApi in api_community_repository.dart
+    final ICommunityRepository repo =
+        useRealApi ? ApiCommunityRepository() : MockCommunityRepository();
+
     return BlocProvider(
-      create: (_) => CommunityCubit(MockCommunityRepository())..loadPosts(),
+      create: (_) => CommunityCubit(repo)..loadPosts(),
       child: _CommunityScreenBody(initialTab: initialTab),
     );
   }
 }
+
+// ─── Everything below is IDENTICAL to original ───────────────────────────────
 
 class _CommunityScreenBody extends StatefulWidget {
   final int initialTab;
@@ -63,7 +73,6 @@ class _CommunityScreenBodyState extends State<_CommunityScreenBody>
   }
 
   void _openCreatePost(BuildContext context) {
-    // ✅ بنجيب الـ cubit من الـ context الصح
     final cubit = context.read<CommunityCubit>();
     Navigator.push(
       context,
@@ -97,7 +106,6 @@ class _CommunityScreenBodyState extends State<_CommunityScreenBody>
           ],
         ),
       ),
-      // ✅ الـ FAB داخل الـ Scaffold بعد ما BlocProvider اتبنى
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openCreatePost(context),
         backgroundColor: const Color(0xFF155DFC),
@@ -114,7 +122,8 @@ class _CommunityScreenBodyState extends State<_CommunityScreenBody>
       decoration: const BoxDecoration(
         color: Colors.white,
         boxShadow: [
-          BoxShadow(color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 4))
+          BoxShadow(
+              color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 4))
         ],
       ),
       child: Row(
@@ -188,7 +197,6 @@ class _CommunityScreenBodyState extends State<_CommunityScreenBody>
   }
 }
 
-// ✅ Discover Tab كـ widget منفصل عشان يكون نضيف
 class _DiscoverTab extends StatelessWidget {
   final VoidCallback onCreatePost;
   const _DiscoverTab({required this.onCreatePost});
@@ -220,8 +228,6 @@ class _DiscoverTab extends StatelessWidget {
         }
 
         if (state is CommunityLoaded) {
-          // ✅ فلتر البوستات على حسب الـ visibility
-          // Public فقط يظهر في الـ Discover
           final visiblePosts = state.posts
               .where((p) =>
                   p.visibility == PostVisibility.public ||
@@ -232,7 +238,7 @@ class _DiscoverTab extends StatelessWidget {
             onRefresh: () => context.read<CommunityCubit>().refreshPosts(),
             child: ListView.builder(
               padding: const EdgeInsets.only(top: 16, bottom: 100),
-              itemCount: visiblePosts.length + 1, // +1 للـ header
+              itemCount: visiblePosts.length + 1,
               itemBuilder: (context, index) {
                 if (index == 0) {
                   return Column(

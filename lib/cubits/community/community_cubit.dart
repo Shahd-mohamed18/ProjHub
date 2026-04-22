@@ -1,4 +1,11 @@
 // lib/cubits/community/community_cubit.dart
+//
+// FIX: loadPosts() now reads the real Firebase UID from FirebaseAuth
+// instead of defaulting to the hardcoded 'current_user' string.
+// This real UID is then passed to every operation that needs it
+// (toggleLike, createPost, addComment).
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/community/community_state.dart';
 import 'package:onboard/models/CommunityModels/post_model.dart';
@@ -9,25 +16,36 @@ class CommunityCubit extends Cubit<CommunityState> {
 
   CommunityCubit(this._repository) : super(const CommunityInitial());
 
-  Future<void> loadPosts({String userId = 'current_user'}) async {
+  // ── Reads the real Firebase UID ──────────────
+  String get _realUid =>
+      FirebaseAuth.instance.currentUser?.uid ?? 'current_user';
+
+  // ─────────────────────────────────────────────
+  // loadPosts — always uses the real UID
+  // ─────────────────────────────────────────────
+  Future<void> loadPosts({String? userId}) async {
+    // ✅ Use real Firebase UID, ignore the hardcoded default
+    final uid = userId ?? _realUid;
+    print('🆔 [CUBIT] currentUserId: $uid');
+
     emit(const CommunityLoading());
     try {
       final results = await Future.wait([
         _repository.getPosts(),
-        _repository.getMyPosts(userId),
+        _repository.getMyPosts(uid),
       ]);
 
       final posts = (results[0] as List<PostModel>)
-          .map((p) => p.copyWith(isLiked: p.isLikedBy(userId)))
+          .map((p) => p.copyWith(isLiked: p.isLikedBy(uid)))
           .toList();
       final myPosts = (results[1] as List<PostModel>)
-          .map((p) => p.copyWith(isLiked: p.isLikedBy(userId)))
+          .map((p) => p.copyWith(isLiked: p.isLikedBy(uid)))
           .toList();
 
       emit(CommunityLoaded(
         posts: posts,
         myPosts: myPosts,
-        currentUserId: userId,
+        currentUserId: uid, // ✅ stored in state so every widget can read it
       ));
     } catch (e) {
       emit(CommunityError('Failed to load posts: ${e.toString()}'));
@@ -36,24 +54,30 @@ class CommunityCubit extends Cubit<CommunityState> {
 
   Future<void> refreshPosts({String? userId}) async {
     final currentState = state;
+    // ✅ Pull uid from state (set by loadPosts) or fall back to real Firebase UID
     final uid = userId ??
         (currentState is CommunityLoaded
             ? currentState.currentUserId
-            : 'current_user');
+            : _realUid);
     return loadPosts(userId: uid);
   }
 
-  // Toggle Like - Optimistic Update
+  // ─────────────────────────────────────────────
+  // toggleLike — uses uid from CommunityLoaded state
+  // ─────────────────────────────────────────────
   Future<void> toggleLike(String postId) async {
     final currentState = state;
     if (currentState is! CommunityLoaded) return;
 
+    // ✅ uid comes from state (set correctly by loadPosts)
     final userId = currentState.currentUserId;
+    print('🔍 [TOGGLE LIKE] using userId from state: $userId');
 
     final optimisticPosts =
         _toggleLikeInList(currentState.posts, postId, userId);
     final optimisticMyPosts =
         _toggleLikeInList(currentState.myPosts, postId, userId);
+
     emit(currentState.copyWith(
       posts: optimisticPosts,
       myPosts: optimisticMyPosts,
@@ -61,27 +85,43 @@ class CommunityCubit extends Cubit<CommunityState> {
 
     try {
       final updatedPost = await _repository.toggleLike(postId, userId);
-      emit(currentState.copyWith(
-        posts: _updatePostInList(optimisticPosts, updatedPost),
-        myPosts: _updatePostInList(optimisticMyPosts, updatedPost),
-      ));
-    } catch (_) {
+      // Only replace if backend returned a meaningful post object
+      if (updatedPost.id.isNotEmpty &&
+          (updatedPost.content.isNotEmpty || updatedPost.userId.isNotEmpty)) {
+        final latestState = state;
+        if (latestState is CommunityLoaded) {
+          emit(latestState.copyWith(
+            posts: _updatePostInList(latestState.posts, updatedPost),
+            myPosts: _updatePostInList(latestState.myPosts, updatedPost),
+          ));
+        }
+      }
+    } catch (e) {
+      print('❌ [TOGGLE LIKE] failed: $e — reverting optimistic update');
       emit(currentState);
     }
   }
 
-  // إنشاء Post جديد
+  // ─────────────────────────────────────────────
+  // createPost — userId / userName read from caller (create_post_screen)
+  // ─────────────────────────────────────────────
   Future<void> createPost({
     required String content,
     required List<String> hashtags,
     required PostVisibility visibility,
     String? attachmentName,
-    String userId = 'current_user',
-    String userName = 'Marwa Mohamed',
-    String userInitial = 'M',
+    String? userId,
+    String? userName,
+    String? userInitial,
   }) async {
     final currentState = state;
     if (currentState is! CommunityLoaded) return;
+
+    // ✅ Prefer passed-in userId; fallback to uid stored in state
+    final uid = userId ?? currentState.currentUserId;
+    final name = userName ?? '';
+    final initial =
+        userInitial ?? (name.isNotEmpty ? name[0].toUpperCase() : '?');
 
     emit(currentState.copyWith(isCreatingPost: true));
     try {
@@ -90,9 +130,9 @@ class CommunityCubit extends Cubit<CommunityState> {
         hashtags: hashtags,
         visibility: visibility,
         attachmentName: attachmentName,
-        userId: userId,
-        userName: userName,
-        userInitial: userInitial,
+        userId: uid,
+        userName: name,
+        userInitial: initial,
       );
 
       final latestState = state;
@@ -104,6 +144,7 @@ class CommunityCubit extends Cubit<CommunityState> {
         ));
       }
     } catch (e) {
+      print('❌ [CREATE POST] failed: $e');
       final latestState = state;
       if (latestState is CommunityLoaded) {
         emit(latestState.copyWith(isCreatingPost: false));
@@ -111,13 +152,14 @@ class CommunityCubit extends Cubit<CommunityState> {
     }
   }
 
-  // ✅ تغيير visibility بوست موجود
+  // ─────────────────────────────────────────────
+  // changePostVisibility — optimistic only (no backend endpoint)
+  // ─────────────────────────────────────────────
   Future<void> changePostVisibility(
       String postId, PostVisibility newVisibility) async {
     final currentState = state;
     if (currentState is! CommunityLoaded) return;
 
-    // Optimistic update فوراً
     PostModel update(PostModel p) =>
         p.id == postId ? p.copyWith(visibility: newVisibility) : p;
 
@@ -125,37 +167,31 @@ class CommunityCubit extends Cubit<CommunityState> {
       posts: currentState.posts.map(update).toList(),
       myPosts: currentState.myPosts.map(update).toList(),
     ));
-
-    try {
-      // TODO: PATCH /api/community/posts/{postId}/visibility
-      // await _repository.updateVisibility(postId, newVisibility);
-    } catch (_) {
-      // لو فشل نرجع القديم
-      emit(currentState);
-    }
   }
 
-  // ✅ حذف بوست
+  // ─────────────────────────────────────────────
+  // deletePost — optimistic, then confirmed by backend
+  // ─────────────────────────────────────────────
   Future<void> deletePost(String postId) async {
     final currentState = state;
     if (currentState is! CommunityLoaded) return;
 
-    // Optimistic - شيل فوراً من الـ UI
     emit(currentState.copyWith(
       posts: currentState.posts.where((p) => p.id != postId).toList(),
       myPosts: currentState.myPosts.where((p) => p.id != postId).toList(),
     ));
 
     try {
-      // TODO: DELETE /api/community/posts/{postId}
       await _repository.deletePost(postId);
-    } catch (_) {
-      // لو فشل نرجع القديم
+    } catch (e) {
+      print('❌ [DELETE POST] failed: $e — reverting');
       emit(currentState);
     }
   }
 
-  // زود عداد الكومنتات
+  // ─────────────────────────────────────────────
+  // incrementCommentCount — local optimistic only
+  // ─────────────────────────────────────────────
   void incrementCommentCount(String postId) {
     final currentState = state;
     if (currentState is! CommunityLoaded) return;
@@ -169,6 +205,9 @@ class CommunityCubit extends Cubit<CommunityState> {
     ));
   }
 
+  // ─────────────────────────────────────────────
+  // Helpers
+  // ─────────────────────────────────────────────
   List<PostModel> _toggleLikeInList(
       List<PostModel> list, String postId, String userId) {
     return list.map((p) {

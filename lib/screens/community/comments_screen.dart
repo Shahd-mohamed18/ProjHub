@@ -1,12 +1,17 @@
 // lib/screens/community/comments_screen.dart
+//
+// FIX: replaced hardcoded _currentUserId / _currentUserName constants
+// with values read from AuthCubit.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:onboard/cubits/auth/auth_cubit.dart';
 import 'package:onboard/cubits/community/community_comments_cubit.dart';
 import 'package:onboard/cubits/community/community_cubit.dart';
 import 'package:onboard/cubits/community/community_state.dart';
 import 'package:onboard/models/CommunityModels/post_model.dart';
-import 'package:onboard/repositories/community_repository.dart';
 import 'package:onboard/repositories/mock_community_repository.dart';
+import 'package:onboard/repositories/api_community_repository.dart';
 import 'package:onboard/models/CommunityModels/community_comment_model.dart';
 
 class CommentsScreen extends StatefulWidget {
@@ -20,13 +25,14 @@ class CommentsScreen extends StatefulWidget {
 class _CommentsScreenState extends State<CommentsScreen> {
   final TextEditingController _commentController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-
-  // اسم اللي هيكون مذكور في الـ reply (لو في reply)
   String? _replyingToName;
 
-  // TODO: جيب من AuthCubit
-  static const String _currentUserId = 'current_user';
-  static const String _currentUserName = 'Marwa';
+  // ✅ Read real values from AuthCubit
+  String get _currentUserId =>
+      context.read<AuthCubit>().state.userModel?.uid ?? '';
+
+  String get _currentUserName =>
+      context.read<AuthCubit>().state.userModel?.fullName ?? '';
 
   @override
   void dispose() {
@@ -39,7 +45,6 @@ class _CommentsScreenState extends State<CommentsScreen> {
     setState(() => _replyingToName = userName);
     _commentController.text = '@$userName ';
     _focusNode.requestFocus();
-    // نخلي الـ cursor في الآخر
     _commentController.selection = TextSelection.fromPosition(
       TextPosition(offset: _commentController.text.length),
     );
@@ -53,8 +58,13 @@ class _CommentsScreenState extends State<CommentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ Use same repo toggle as the rest of the app
+    final repo = useRealApi
+        ? ApiCommunityRepository()
+        : MockCommunityRepository();
+
     return BlocProvider(
-      create: (_) => CommunityCommentsCubit(MockCommunityRepository())
+      create: (_) => CommunityCommentsCubit(repo)
         ..loadComments(widget.post.id),
       child: Scaffold(
         body: Container(
@@ -62,7 +72,11 @@ class _CommentsScreenState extends State<CommentsScreen> {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFEFF6FF), Color(0xFFF4F4F4), Color(0xFF7D9FCA)],
+              colors: [
+                Color(0xFFEFF6FF),
+                Color(0xFFF4F4F4),
+                Color(0xFF7D9FCA),
+              ],
             ),
           ),
           child: Column(
@@ -138,7 +152,6 @@ class _CommentsScreenState extends State<CommentsScreen> {
                   },
                 ),
               ),
-              // ✅ Banner الـ Reply
               if (_replyingToName != null) _buildReplyBanner(),
               _buildCommentInput(),
             ],
@@ -154,8 +167,12 @@ class _CommentsScreenState extends State<CommentsScreen> {
       padding: const EdgeInsets.only(top: 48, left: 24, bottom: 16, right: 24),
       decoration: const BoxDecoration(
         color: Colors.white,
-        boxShadow: [BoxShadow(
-            color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 1))],
+        boxShadow: [
+          BoxShadow(
+              color: Color(0x3F000000),
+              blurRadius: 4,
+              offset: Offset(0, 1)),
+        ],
       ),
       child: Row(
         children: [
@@ -187,7 +204,8 @@ class _CommentsScreenState extends State<CommentsScreen> {
           Row(
             children: [
               Container(
-                width: 40, height: 40,
+                width: 40,
+                height: 40,
                 decoration: const ShapeDecoration(
                     color: Color(0xFFDBEAFE), shape: CircleBorder()),
                 child: Center(
@@ -226,7 +244,8 @@ class _CommentsScreenState extends State<CommentsScreen> {
           if (widget.post.attachmentName != null) ...[
             const SizedBox(height: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: ShapeDecoration(
                 color: const Color(0xFFF9FAFB),
                 shape: RoundedRectangleBorder(
@@ -251,9 +270,13 @@ class _CommentsScreenState extends State<CommentsScreen> {
           Row(
             children: [
               Icon(
-                widget.post.isLiked ? Icons.favorite : Icons.favorite_border,
+                widget.post.isLiked
+                    ? Icons.favorite
+                    : Icons.favorite_border,
                 size: 16,
-                color: widget.post.isLiked ? Colors.red : const Color(0xFF6A7282),
+                color: widget.post.isLiked
+                    ? Colors.red
+                    : const Color(0xFF6A7282),
               ),
               const SizedBox(width: 6),
               Text('${widget.post.likes} Likes',
@@ -280,7 +303,6 @@ class _CommentsScreenState extends State<CommentsScreen> {
     );
   }
 
-  // ✅ Banner بيظهر لما اليوزر يضغط Reply
   Widget _buildReplyBanner() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -310,11 +332,14 @@ class _CommentsScreenState extends State<CommentsScreen> {
   Widget _buildCommentInput() {
     return BlocBuilder<CommunityCommentsCubit, CommentsPostState>(
       builder: (context, state) {
-        final isSending = state is CommentsPostLoaded && state.isSending;
+        final isSending =
+            state is CommentsPostLoaded && state.isSending;
 
         return Container(
           padding: EdgeInsets.only(
-            left: 16, right: 16, top: 12,
+            left: 16,
+            right: 16,
+            top: 12,
             bottom: MediaQuery.of(context).viewInsets.bottom + 12,
           ),
           color: Colors.white,
@@ -344,14 +369,17 @@ class _CommentsScreenState extends State<CommentsScreen> {
               const SizedBox(width: 12),
               isSending
                   ? const SizedBox(
-                      width: 24, height: 24,
+                      width: 24,
+                      height: 24,
                       child: CircularProgressIndicator(strokeWidth: 2))
                   : GestureDetector(
                       onTap: () => _sendComment(context),
                       child: Container(
-                        width: 42, height: 42,
+                        width: 42,
+                        height: 42,
                         decoration: const ShapeDecoration(
-                            color: Color(0xFF155DFC), shape: CircleBorder()),
+                            color: Color(0xFF155DFC),
+                            shape: CircleBorder()),
                         child: const Icon(Icons.send,
                             color: Colors.white, size: 18),
                       ),
@@ -367,11 +395,17 @@ class _CommentsScreenState extends State<CommentsScreen> {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
 
+    // ✅ Use real UID and name
+    final userId = _currentUserId;
+    final userName = _currentUserName;
+
+    print('💬 [COMMENT] userId: $userId  userName: $userName');
+
     context.read<CommunityCommentsCubit>().addComment(
           postId: widget.post.id,
           content: text,
-          userId: _currentUserId,
-          userName: _currentUserName,
+          userId: userId,
+          userName: userName,
         );
 
     _commentController.clear();
@@ -384,13 +418,13 @@ class _CommentsScreenState extends State<CommentsScreen> {
   }
 }
 
-// ──────────────────────────────────────────
-// Comment Card
-// ──────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Comment Card — unchanged
+// ─────────────────────────────────────────────
 class _CommentCard extends StatelessWidget {
   final CommunityCommentModel comment;
   final VoidCallback onLike;
-  final VoidCallback onReply; // ✅ شغال دلوقتي
+  final VoidCallback onReply;
 
   const _CommentCard({
     required this.comment,
@@ -440,13 +474,14 @@ class _CommentCard extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              // Like
               GestureDetector(
                 onTap: onLike,
                 child: Row(
                   children: [
                     Icon(
-                      comment.isLiked ? Icons.favorite : Icons.favorite_border,
+                      comment.isLiked
+                          ? Icons.favorite
+                          : Icons.favorite_border,
                       size: 16,
                       color: comment.isLiked ? Colors.red : Colors.grey,
                     ),
@@ -458,7 +493,6 @@ class _CommentCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 20),
-              // ✅ Reply - شغال فعلاً
               GestureDetector(
                 onTap: onReply,
                 child: const Row(

@@ -98,6 +98,21 @@ class CommunityCommentModel extends Equatable {
     );
   }
 
+  // ✅ الـ fromJson الجديد
+  factory CommunityCommentModel.fromJson(Map<String, dynamic> json) {
+    final name = json['userName'] ?? '';
+    return CommunityCommentModel(
+      id: json['id'].toString(),
+      postId: json['postId']?.toString(),
+      userName: name,
+      userInitial: name.isNotEmpty ? name[0].toUpperCase() : '?',
+      content: json['content'] ?? '',
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
+      likes: json['likes'] ?? 0,
+      isLiked: json['isLiked'] ?? false,
+    );
+  }
+
   CommunityCommentModel copyWith({
     String? id,
     String? taskId,
