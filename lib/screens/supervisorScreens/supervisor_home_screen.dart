@@ -215,9 +215,14 @@ class SupervisorHomeScreen extends StatelessWidget {
                     ],
 
                     // Tasks Card
-                    Expanded(
-                      child: _buildStatCard('Tasks', tasksCount.toString()),
-                    ),
+                     Expanded(
+                      child: GestureDetector(
+                       onTap: () {
+                       Navigator.pushNamed(context, '/all_tasks');
+                       },
+                       child: _buildStatCard('Tasks', tasksCount.toString()),
+                  ),
+                  ),
                   ],
                 ),
               ),
