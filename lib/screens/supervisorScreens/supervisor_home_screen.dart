@@ -317,6 +317,7 @@ class SupervisorHomeScreen extends StatelessWidget {
 
   Widget _buildEmptyTeams(bool isSupervisor) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: Colors.white,

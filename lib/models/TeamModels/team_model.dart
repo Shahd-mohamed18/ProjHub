@@ -28,6 +28,32 @@ class TeamModel {
 
   int get totalMembers => members.length ;
 
+
+TeamModel copyWith({
+    String? id,
+    String? name,
+    String? projectName,
+    String? description,
+    String? supervisorId,
+    String? supervisorName,
+    List<TeamMember>? assistants,
+    List<TeamMember>? members,
+    DateTime? createdAt,
+    int? activeProjects,
+  }) {
+    return TeamModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      projectName: projectName ?? this.projectName,
+      description: description ?? this.description,
+      supervisorId: supervisorId ?? this.supervisorId,
+      supervisorName: supervisorName ?? this.supervisorName,
+      assistants: assistants ?? this.assistants,
+      members: members ?? this.members,
+      createdAt: createdAt ?? this.createdAt,
+      activeProjects: activeProjects ?? this.activeProjects,
+    );
+  }
   factory TeamModel.fromJson(Map<String, dynamic> json) {
     return TeamModel(
       id: json['id'] ?? '',
