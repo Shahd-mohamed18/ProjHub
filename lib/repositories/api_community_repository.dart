@@ -1,10 +1,11 @@
 // lib/repositories/api_community_repository.dart
 //
-// Real backend integration for Community module.
-// Base URL: http://projecthubb.runasp.net
-//
-// Toggle: set `useRealApi = true` to switch from mock to real API.
-// Verification: console prints "✅ API connected successfully" on first successful fetch.
+// Fixes applied:
+//  1. _commentFromApi: flexible JSON key parsing (userName/user_name/fullName/name,
+//     userId/user_id/uid, parentCommentId/parent_comment_id/parentId).
+//  2. getComments: rebuild nested tree from flat list using parentCommentId.
+//  3. deleteComment: DELETE /api/Community/comments/{commentId}?userId={userId}
+//  4. Community post endpoints unchanged.
 
 import 'dart:convert';
 import 'dart:io';
@@ -17,7 +18,7 @@ import 'package:onboard/repositories/community_repository.dart';
 // ─────────────────────────────────────────────
 // 🔧 TOGGLE: set to true to use real backend API
 // ─────────────────────────────────────────────
-const bool useRealApi = true;   
+const bool useRealApi = true;
 
 class ApiCommunityRepository implements ICommunityRepository {
   static const String _baseUrl = 'https://projecthubb.runasp.net';
@@ -55,7 +56,6 @@ class ApiCommunityRepository implements ICommunityRepository {
 
   // ─────────────────────────────────────────────
   // GET /api/Community/posts?currentUserId={uid}
-  // Interface signature: Future<List<PostModel>> getPosts()
   // ─────────────────────────────────────────────
   @override
   Future<List<PostModel>> getPosts() async {
@@ -69,9 +69,14 @@ class ApiCommunityRepository implements ICommunityRepository {
     if (response.statusCode == 200) {
       _verifyOnce();
       final List<dynamic> data = jsonDecode(response.body);
-      return data
+      if (data.isNotEmpty) {
+        print('📦 [GET POSTS] first post isLiked: ${data.first['isLiked']}');
+      }
+      final posts = data
           .map((json) => _postFromApi(json as Map<String, dynamic>))
           .toList();
+      posts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return posts;
     } else {
       throw Exception(
           'GET /api/Community/posts failed: ${response.statusCode} ${response.body}');
@@ -91,9 +96,11 @@ class ApiCommunityRepository implements ICommunityRepository {
     if (response.statusCode == 200) {
       _verifyOnce();
       final List<dynamic> data = jsonDecode(response.body);
-      return data
+      final posts = data
           .map((json) => _postFromApi(json as Map<String, dynamic>))
           .toList();
+      posts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return posts;
     } else {
       throw Exception(
           'GET /api/Community/my-posts/$userId failed: ${response.statusCode}');
@@ -146,7 +153,13 @@ class ApiCommunityRepository implements ICommunityRepository {
     if (response.statusCode == 200 || response.statusCode == 201) {
       _verifyOnce();
       final dynamic data = jsonDecode(response.body);
-      return _postFromApi(data as Map<String, dynamic>);
+      if (data is Map<String, dynamic>) {
+        if (data.containsKey('message') && !data.containsKey('id') && !data.containsKey('postId')) {
+          return _stubPost('0', '');
+        }
+        return _postFromApi(data);
+      }
+      return _stubPost('0', '');
     } else {
       throw Exception(
           'POST /api/Community/posts failed: ${response.statusCode} ${response.body}');
@@ -155,15 +168,11 @@ class ApiCommunityRepository implements ICommunityRepository {
 
   // ─────────────────────────────────────────────
   // POST /api/Community/posts/{postId}/like
-  // Body per Swagger: plain JSON string (the userId)
   // ─────────────────────────────────────────────
   @override
   Future<PostModel> toggleLike(String postId, String currentUserId) async {
     final token = await _getToken();
     final uri = Uri.parse('$_baseUrl/api/Community/posts/$postId/like/');
-    print('🔍 [TOGGLE LIKE] postId: $postId');
-    print('🔍 [TOGGLE LIKE] currentUserId: $currentUserId');
-    print('🔍 [TOGGLE LIKE] token: ${await _getToken()}');
 
     final response = await http.post(
       uri,
@@ -172,7 +181,6 @@ class ApiCommunityRepository implements ICommunityRepository {
     );
 
     print('📦 [TOGGLE LIKE] response status: ${response.statusCode}');
-    print('📦 [TOGGLE LIKE] response body: ${response.body}');
 
     if (response.statusCode == 200) {
       _verifyOnce();
@@ -182,9 +190,7 @@ class ApiCommunityRepository implements ICommunityRepository {
           if (data is Map<String, dynamic>) {
             return _postFromApi(data);
           }
-        } catch (_) {
-          // body wasn't a post — CommunityCubit already applied optimistic
-        }
+        } catch (_) {}
       }
       return _stubPost(postId, currentUserId);
     } else {
@@ -212,6 +218,7 @@ class ApiCommunityRepository implements ICommunityRepository {
 
   // ─────────────────────────────────────────────
   // GET /api/Community/posts/{postId}/comments
+  // ✅ FIX: rebuild nested tree from flat list using parentCommentId
   // ─────────────────────────────────────────────
   @override
   Future<List<CommunityCommentModel>> getComments(String postId) async {
@@ -223,10 +230,19 @@ class ApiCommunityRepository implements ICommunityRepository {
     if (response.statusCode == 200) {
       _verifyOnce();
       final List<dynamic> data = jsonDecode(response.body);
-      return data
-          .map((json) =>
-              _commentFromApi(json as Map<String, dynamic>, postId: postId))
+
+      // Debug: print first comment JSON to see actual keys
+      if (data.isNotEmpty) {
+        print('🔍 [GET COMMENTS] first comment JSON: ${data.first}');
+      }
+
+      // Parse all comments (flat list from API)
+      final List<CommunityCommentModel> flat = data
+          .map((json) => _commentFromApi(json as Map<String, dynamic>, postId: postId))
           .toList();
+
+      // ✅ Rebuild tree: separate top-level from replies
+      return _buildCommentTree(flat);
     } else {
       throw Exception(
           'GET /api/Community/posts/$postId/comments failed: ${response.statusCode}');
@@ -235,7 +251,6 @@ class ApiCommunityRepository implements ICommunityRepository {
 
   // ─────────────────────────────────────────────
   // POST /api/Community/comments
-  // Body: { "content": "...", "postId": 123, "userId": "..." }
   // ─────────────────────────────────────────────
   @override
   Future<CommunityCommentModel> addComment({
@@ -243,6 +258,7 @@ class ApiCommunityRepository implements ICommunityRepository {
     required String content,
     required String userId,
     required String userName,
+    String? parentCommentId,
   }) async {
     final token = await _getToken();
     final uri = Uri.parse('$_baseUrl/api/Community/comments');
@@ -253,6 +269,8 @@ class ApiCommunityRepository implements ICommunityRepository {
       'content': content,
       'postId': postIdInt,
       'userId': userId,
+      if (parentCommentId != null && parentCommentId.isNotEmpty)
+        'parentCommentId': int.tryParse(parentCommentId) ?? 0,
     });
 
     final response = await http.post(
@@ -268,10 +286,34 @@ class ApiCommunityRepository implements ICommunityRepository {
         data as Map<String, dynamic>,
         postId: postId,
         fallbackUserName: userName,
+        fallbackUserId: userId,
       );
     } else {
       throw Exception(
           'POST /api/Community/comments failed: ${response.statusCode} ${response.body}');
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // ✅ NEW: DELETE /api/Community/comments/{commentId}?userId={userId}
+  // ─────────────────────────────────────────────
+  @override
+  Future<void> deleteComment(String commentId, String userId) async {
+    final token = await _getToken();
+    final uri = Uri.parse('$_baseUrl/api/Community/comments/$commentId')
+        .replace(queryParameters: {'userId': userId});
+
+    print('🗑️ [DELETE COMMENT] commentId: $commentId  userId: $userId');
+    print('🗑️ [DELETE COMMENT] uri: $uri');
+
+    final response = await http.delete(uri, headers: _headers(token));
+
+    print('🗑️ [DELETE COMMENT] status: ${response.statusCode}');
+    print('🗑️ [DELETE COMMENT] body: ${response.body}');
+
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception(
+          'DELETE /api/Community/comments/$commentId failed: ${response.statusCode} ${response.body}');
     }
   }
 
@@ -288,7 +330,6 @@ class ApiCommunityRepository implements ICommunityRepository {
   @override
   Future<PostModel> updateVisibility(
       String postId, PostVisibility visibility) async {
-    // No endpoint in spec — CommunityCubit handles this optimistically
     throw UnimplementedError(
         'updateVisibility is not in the backend API — optimistic update only');
   }
@@ -298,23 +339,19 @@ class ApiCommunityRepository implements ICommunityRepository {
   // ─────────────────────────────────────────────
   PostModel _postFromApi(Map<String, dynamic> json) {
     final id = (json['id'] ?? json['postId'] ?? 0).toString();
-    final userId = (json['userId'] ?? json['user_id'] ?? '').toString();
+    final userId = (json['user_id'] ?? json['userId'] ?? '').toString();
     final userName =
-        (json['userName'] ?? json['user_name'] ?? json['fullName'] ?? '')
-            .toString();
+        (json['user_name'] ?? json['userName'] ?? json['fullName'] ?? '').toString();
     final content = (json['content'] ?? '').toString();
     final likes = (json['likes'] ?? json['likesCount'] ?? 0) as int;
     final commentsCount =
-        (json['commentsCount'] ?? json['comments_count'] ?? 0) as int;
-    final isLiked = json['isLiked'] as bool? ?? false;
+        (json['comments_count'] ?? json['commentsCount'] ?? 0) as int;
+    final isLiked = (json['is_liked'] ?? json['isLiked'] ?? false) as bool;
 
     List<String> likedByUserIds = [];
-    if (json['likedByUserIds'] is List) {
-      likedByUserIds = List<String>.from(
-          (json['likedByUserIds'] as List).map((e) => e.toString()));
-    } else if (json['likedByUsers'] is List) {
-      likedByUserIds = List<String>.from(
-          (json['likedByUsers'] as List).map((e) => e.toString()));
+    final likedRaw = json['liked_by_user_ids'] ?? json['likedByUserIds'] ?? json['likedByUsers'];
+    if (likedRaw is List) {
+      likedByUserIds = likedRaw.map((e) => e.toString()).toList();
     }
 
     List<String> hashtags = [];
@@ -332,12 +369,28 @@ class ApiCommunityRepository implements ICommunityRepository {
 
     final userInitial = userName.isNotEmpty ? userName[0].toUpperCase() : '?';
     final avatarColor =
-        (json['userAvatarColor'] ?? json['user_avatar_color'] ?? '#DBEAFE')
-            .toString();
-    final timeAgo = _formatTimeAgo(json['createdAt'] ?? json['created_at']);
-    final attachmentName =
-        (json['attachmentName'] ?? json['postImageUrl'] ?? json['imageUrl'])
-            ?.toString();
+        (json['user_avatar_color'] ?? json['userAvatarColor'] ?? '#DBEAFE').toString();
+
+    DateTime createdAt;
+    try {
+      String? rawTime = json['created_at'] ?? json['createdAt'] ?? json['time_ago'];
+      if (rawTime != null && rawTime.isNotEmpty) {
+        final hasTimezone = rawTime.endsWith('Z') ||
+            RegExp(r'[+-]\d{2}:\d{2}$').hasMatch(rawTime);
+        if (!hasTimezone) rawTime += 'Z';
+        createdAt = DateTime.parse(rawTime).toLocal();
+      } else {
+        createdAt = DateTime.now();
+      }
+    } catch (e) {
+      createdAt = DateTime.now();
+    }
+
+    final attachmentName = (json['post_image'] ??
+                            json['postImage'] ??
+                            json['postImageUrl'] ??
+                            json['imageUrl'] ??
+                            json['attachmentName'])?.toString();
 
     return PostModel(
       id: id,
@@ -345,7 +398,7 @@ class ApiCommunityRepository implements ICommunityRepository {
       userName: userName,
       userInitial: userInitial,
       userAvatarColor: avatarColor,
-      timeAgo: timeAgo,
+      createdAt: createdAt,
       content: content,
       hashtags: hashtags,
       likes: likes,
@@ -358,22 +411,66 @@ class ApiCommunityRepository implements ICommunityRepository {
   }
 
   // ─────────────────────────────────────────────
-  // MAPPING: API JSON → CommunityCommentModel
+  // ✅ FIXED: MAPPING: API JSON → CommunityCommentModel
+  // Tries multiple key variants for userName, userId, parentCommentId
   // ─────────────────────────────────────────────
   CommunityCommentModel _commentFromApi(
     Map<String, dynamic> json, {
     required String postId,
     String? fallbackUserName,
+    String? fallbackUserId,
   }) {
+    // ✅ Flexible ID parsing
     final id = (json['id'] ?? json['commentId'] ?? 0).toString();
-    final userName =
-        (json['userName'] ?? json['user_name'] ?? json['fullName'] ?? fallbackUserName ?? '')
-            .toString();
+
+    // ✅ Flexible userName parsing — try all possible key names
+    final userName = (() {
+      for (final key in ['userName', 'user_name', 'fullName', 'name']) {
+        final v = json[key];
+        if (v != null && v.toString().trim().isNotEmpty) return v.toString().trim();
+      }
+      return fallbackUserName ?? '';
+    })();
+
+    // ✅ Flexible userId parsing
+    final userId = (() {
+      for (final key in ['userId', 'user_id', 'uid']) {
+        final v = json[key];
+        if (v != null && v.toString().trim().isNotEmpty) return v.toString().trim();
+      }
+      return fallbackUserId ?? '';
+    })();
+
+    // ✅ Flexible parentCommentId parsing
+    final parentIdRaw = (() {
+      for (final key in ['parentCommentId', 'parent_comment_id', 'parentId']) {
+        final v = json[key];
+        if (v != null) return v.toString().trim();
+      }
+      return '';
+    })();
+    final parentCommentId = (parentIdRaw.isEmpty || parentIdRaw == '0' || parentIdRaw == 'null')
+        ? null
+        : parentIdRaw;
+
     final content = (json['content'] ?? json['text'] ?? '').toString();
+
+    DateTime createdAt;
     final createdAtRaw = json['createdAt'] ?? json['created_at'];
-    final createdAt = createdAtRaw != null
-        ? DateTime.tryParse(createdAtRaw.toString()) ?? DateTime.now()
-        : DateTime.now();
+    if (createdAtRaw != null) {
+      try {
+        String raw = createdAtRaw.toString();
+        if (!raw.endsWith('Z') && !raw.contains('+') && !raw.contains('-', 10)) {
+          raw += 'Z';
+        }
+        createdAt = DateTime.parse(raw).toLocal();
+      } catch (_) {
+        createdAt = DateTime.now();
+      }
+    } else {
+      createdAt = DateTime.now();
+    }
+
     final likes = (json['likes'] ?? json['likesCount'] ?? 0) as int;
     final isLiked = json['isLiked'] as bool? ?? false;
     final userInitial = userName.isNotEmpty ? userName[0].toUpperCase() : '?';
@@ -381,13 +478,45 @@ class ApiCommunityRepository implements ICommunityRepository {
     return CommunityCommentModel(
       id: id,
       postId: postId,
+      userId: userId,
       userName: userName,
       userInitial: userInitial,
       content: content,
       createdAt: createdAt,
       likes: likes,
       isLiked: isLiked,
+      parentCommentId: parentCommentId,
     );
+  }
+
+  // ─────────────────────────────────────────────
+  // ✅ NEW: Build nested comment tree from flat API list
+  // Top-level: parentCommentId == null
+  // Replies: parentCommentId == some top-level id
+  // ─────────────────────────────────────────────
+  List<CommunityCommentModel> _buildCommentTree(List<CommunityCommentModel> flat) {
+    // Map id → comment for quick lookup
+    final Map<String, CommunityCommentModel> byId = {
+      for (final c in flat) c.id: c,
+    };
+
+    // Separate top-level vs replies
+    final topLevel = <CommunityCommentModel>[];
+    final replyMap  = <String, List<CommunityCommentModel>>{};
+
+    for (final c in flat) {
+      if (c.parentCommentId == null) {
+        topLevel.add(c);
+      } else {
+        replyMap.putIfAbsent(c.parentCommentId!, () => []).add(c);
+      }
+    }
+
+    // Attach replies to their parents
+    return topLevel.map((parent) {
+      final replies = replyMap[parent.id] ?? [];
+      return parent.copyWith(replies: List<CommunityCommentModel>.from(replies));
+    }).toList();
   }
 
   PostModel _stubPost(String postId, String userId) => PostModel(
@@ -396,7 +525,7 @@ class ApiCommunityRepository implements ICommunityRepository {
         userName: '',
         userInitial: '',
         userAvatarColor: '#DBEAFE',
-        timeAgo: '',
+        createdAt: DateTime.now(),
         content: '',
         hashtags: const [],
         likes: 0,
@@ -431,17 +560,5 @@ class ApiCommunityRepository implements ICommunityRepository {
       default:
         return PostVisibility.public;
     }
-  }
-
-  String _formatTimeAgo(dynamic raw) {
-    if (raw == null) return '';
-    final dt = DateTime.tryParse(raw.toString());
-    if (dt == null) return '';
-    final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
-    if (diff.inDays < 1) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    return '${dt.day}/${dt.month}/${dt.year}';
   }
 }

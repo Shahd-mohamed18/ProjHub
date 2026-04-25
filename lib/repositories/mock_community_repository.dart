@@ -1,15 +1,13 @@
 // lib/repositories/mock_community_repository.dart
-//
-// CHANGE vs original: getPosts() has no parameters (matches updated interface).
-
 import 'package:onboard/models/CommunityModels/post_model.dart';
 import 'package:onboard/models/CommunityModels/community_comment_model.dart';
 import 'package:onboard/repositories/community_repository.dart';
 
 class MockCommunityRepository implements ICommunityRepository {
   final List<PostModel> _posts = List.from(PostModel.mockPosts);
+  final List<CommunityCommentModel> _comments =
+      List.from(CommunityCommentModel.mockCommunityComments);
 
-  // ✅ No parameters — matches ICommunityRepository.getPosts()
   @override
   Future<List<PostModel>> getPosts() async {
     await Future.delayed(const Duration(milliseconds: 500));
@@ -39,7 +37,7 @@ class MockCommunityRepository implements ICommunityRepository {
       userName: userName,
       userInitial: userInitial,
       userAvatarColor: '#DBEAFE',
-      timeAgo: 'Just now',
+      createdAt: DateTime.now(),
       content: content,
       hashtags: hashtags,
       likes: 0,
@@ -93,7 +91,7 @@ class MockCommunityRepository implements ICommunityRepository {
   @override
   Future<List<CommunityCommentModel>> getComments(String postId) async {
     await Future.delayed(const Duration(milliseconds: 400));
-    return CommunityCommentModel.mockCommentsForPost(postId);
+    return _comments.where((c) => c.postId == postId).toList();
   }
 
   @override
@@ -102,14 +100,26 @@ class MockCommunityRepository implements ICommunityRepository {
     required String content,
     required String userId,
     required String userName,
+    String? parentCommentId,
   }) async {
     await Future.delayed(const Duration(milliseconds: 300));
-    return CommunityCommentModel.create(
+    final comment = CommunityCommentModel.create(
       id: 'cc_${DateTime.now().millisecondsSinceEpoch}',
       postId: postId,
+      userId: userId,
       userName: userName,
       content: content,
+      parentCommentId: parentCommentId,
     );
+    _comments.add(comment);
+    return comment;
+  }
+
+  // ✅ NEW: deleteComment
+  @override
+  Future<void> deleteComment(String commentId, String userId) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    _comments.removeWhere((c) => c.id == commentId);
   }
 
   @override

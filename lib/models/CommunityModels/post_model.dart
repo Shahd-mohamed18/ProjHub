@@ -1,21 +1,19 @@
-// lib/models/CommunityModels/post_model.dart
-
 enum PostVisibility { public, myTeam, onlyMe }
 
 class PostModel {
   final String id;
-  final String userId;            // ✅ لازم للـ like tracking و myPosts
+  final String userId;
   final String userName;
   final String userInitial;
   final String userAvatarColor;
-  final String timeAgo;
+  final DateTime createdAt;        // ✅ الوقت الفعلي
   final String content;
   final List<String> hashtags;
   final int likes;
   final int commentsCount;
   final String? attachmentName;
   final bool isLiked;
-  final List<String> likedByUserIds; // ✅ قايمة مين عمل لايك فعلاً
+  final List<String> likedByUserIds;
   final PostVisibility visibility;
 
   const PostModel({
@@ -24,7 +22,7 @@ class PostModel {
     required this.userName,
     required this.userInitial,
     required this.userAvatarColor,
-    required this.timeAgo,
+    required this.createdAt,       // ✅ إجباري
     required this.content,
     required this.hashtags,
     required this.likes,
@@ -35,7 +33,18 @@ class PostModel {
     this.visibility = PostVisibility.public,
   });
 
-  /// ✅ بيحسب isLiked على حسب الـ currentUserId الفعلي
+  String get timeAgo {
+    final now = DateTime.now();
+    final diff = now.difference(createdAt);
+    if (diff.inDays > 365) return '${(diff.inDays / 365).floor()}y ago';
+    if (diff.inDays > 30) return '${(diff.inDays / 30).floor()}mo ago';
+    if (diff.inDays > 7) return '${(diff.inDays / 7).floor()}w ago';
+    if (diff.inDays >= 1) return diff.inDays == 1 ? 'Yesterday' : '${diff.inDays}d ago';
+    if (diff.inHours >= 1) return '${diff.inHours}h ago';
+    if (diff.inMinutes >= 1) return '${diff.inMinutes}m ago';
+    return 'Just now';
+  }
+
   bool isLikedBy(String currentUserId) => likedByUserIds.contains(currentUserId);
 
   PostModel copyWith({
@@ -43,11 +52,11 @@ class PostModel {
     int? likes,
     List<String>? likedByUserIds,
     int? commentsCount,
-    String? timeAgo,
     String? content,
     List<String>? hashtags,
     String? attachmentName,
     PostVisibility? visibility,
+    DateTime? createdAt,
   }) {
     return PostModel(
       id: id,
@@ -55,7 +64,7 @@ class PostModel {
       userName: userName,
       userInitial: userInitial,
       userAvatarColor: userAvatarColor,
-      timeAgo: timeAgo ?? this.timeAgo,
+      createdAt: createdAt ?? this.createdAt,
       content: content ?? this.content,
       hashtags: hashtags ?? this.hashtags,
       likes: likes ?? this.likes,
@@ -69,14 +78,20 @@ class PostModel {
 
   factory PostModel.fromJson(Map<String, dynamic> json) {
     final name = json['user_name'] as String? ?? '';
+    DateTime createdAt;
+    try {
+      createdAt = DateTime.parse(json['created_at'] ?? json['createdAt'] ?? '');
+    } catch (e) {
+      createdAt = DateTime.now();
+    }
     return PostModel(
-      id: json['id'] as String,
-      userId: json['user_id'] as String? ?? '',
+      id: json['id'].toString(),
+      userId: json['user_id']?.toString() ?? '',
       userName: name,
       userInitial: name.isNotEmpty ? name[0].toUpperCase() : '?',
       userAvatarColor: json['user_avatar_color'] as String? ?? '#DBEAFE',
-      timeAgo: json['time_ago'] as String? ?? '',
-      content: json['content'] as String,
+      createdAt: createdAt,
+      content: json['content'] as String? ?? '',
       hashtags: List<String>.from(json['hashtags'] as List? ?? []),
       likes: json['likes'] as int? ?? 0,
       commentsCount: json['comments_count'] as int? ?? 0,
@@ -95,7 +110,7 @@ class PostModel {
         'user_id': userId,
         'user_name': userName,
         'user_avatar_color': userAvatarColor,
-        'time_ago': timeAgo,
+        'created_at': createdAt.toIso8601String(),
         'content': content,
         'hashtags': hashtags,
         'likes': likes,
@@ -107,29 +122,27 @@ class PostModel {
       };
 
   static List<PostModel> get mockPosts => [
-        const PostModel(
+        PostModel(
           id: 'post_001',
           userId: 'user_marwa',
           userName: 'Marwa Mohamed',
           userInitial: 'M',
           userAvatarColor: '#DBEAFE',
-          timeAgo: '2h ago',
-          content:
-              'Looking for a UI/UX collaborator for a health app. DM if interested!',
+          createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+          content: 'Looking for a UI/UX collaborator for a health app. DM if interested!',
           hashtags: ['#UIUX', '#HealthTech', '#Collaboration'],
           likes: 45,
           commentsCount: 12,
           likedByUserIds: ['user_alex', 'user_sara'],
         ),
-        const PostModel(
+        PostModel(
           id: 'post_002',
           userId: 'user_faten',
           userName: 'Faten Hesham',
           userInitial: 'F',
           userAvatarColor: '#DBEAFE',
-          timeAgo: '1h ago',
-          content:
-              'Sharing our project progress dashboard 📊\nBuilt with React and Chart.js.',
+          createdAt: DateTime.now().subtract(const Duration(hours: 1)),
+          content: 'Sharing our project progress dashboard 📊\nBuilt with React and Chart.js.',
           hashtags: ['#UIUX', '#Analytical', '#Collaboration'],
           likes: 37,
           commentsCount: 120,

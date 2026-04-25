@@ -1,11 +1,11 @@
 // lib/screens/community/create_post_screen.dart
 //
-// FIX: replaced hardcoded _currentUserId / _currentUserName constants
-// with values read from AuthCubit so the real Firebase UID and display
-// name are sent to the backend.
+// Change: Removed "Only Me" visibility option. Only Public and My Team remain.
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:onboard/cubits/auth/auth_cubit.dart';
 import 'package:onboard/cubits/community/community_cubit.dart';
 import 'package:onboard/models/CommunityModels/post_model.dart';
@@ -24,8 +24,10 @@ class CreatePostScreen extends StatefulWidget {
 
 class _CreatePostScreenState extends State<CreatePostScreen> {
   final TextEditingController _contentController = TextEditingController();
+  // ✅ Default to public; "Only Me" removed
   PostVisibility _visibility = PostVisibility.public;
   bool _isPosting = false;
+  File? _selectedImage;
 
   @override
   void dispose() {
@@ -33,7 +35,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     super.dispose();
   }
 
-  // ✅ Read from AuthCubit — no hardcoded values
   String _getUserId(BuildContext context) {
     final userModel = context.read<AuthCubit>().state.userModel;
     return userModel?.uid ?? '';
@@ -56,7 +57,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       case PostVisibility.myTeam:
         return 'My Team';
       case PostVisibility.onlyMe:
-        return 'Only Me';
+        // Shouldn't be reachable but guard anyway
+        return 'My Team';
     }
   }
 
@@ -65,9 +67,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       case PostVisibility.public:
         return Icons.public;
       case PostVisibility.myTeam:
-        return Icons.group;
       case PostVisibility.onlyMe:
-        return Icons.lock;
+        return Icons.group;
     }
   }
 
@@ -97,6 +98,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
+              // ✅ Only two options: Public and My Team
               _visibilityTile(
                 PostVisibility.public,
                 Icons.public,
@@ -109,12 +111,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 'My Team',
                 'Your Team on Community',
               ),
-              _visibilityTile(
-                PostVisibility.onlyMe,
-                Icons.lock,
-                'Only Me',
-                'Only Me',
-              ),
+              // ✅ "Only Me" REMOVED
               const SizedBox(height: 8),
             ],
           ),
@@ -145,6 +142,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     return regex.allMatches(text).map((m) => m.group(0)!).toList();
   }
 
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() => _selectedImage = File(pickedFile.path));
+    }
+  }
+
   Future<void> _submitPost() async {
     final content = _contentController.text.trim();
     if (content.isEmpty) {
@@ -154,7 +159,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       return;
     }
 
-    // ✅ Read real values from AuthCubit right before submitting
     final userId = _getUserId(context);
     final userName = _getUserName(context);
     final userInitial = _getUserInitial(context);
@@ -172,6 +176,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         userId: userId,
         userName: userName,
         userInitial: userInitial,
+        attachmentName: _selectedImage?.path,
       );
 
       if (mounted) {
@@ -189,7 +194,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ Read user info once for display in the header
     final userName = _getUserName(context);
     final userInitial = _getUserInitial(context);
 
@@ -312,7 +316,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             children: [
               Row(
                 children: [
-                  // ✅ Avatar uses real initial
                   Container(
                     width: 40,
                     height: 40,
@@ -331,7 +334,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // ✅ Name uses real user name
                   Text(
                     userName.isNotEmpty ? userName : 'User',
                     style: const TextStyle(
@@ -394,36 +396,61 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               border: InputBorder.none,
             ),
           ),
-          if (_visibility != PostVisibility.public) ...[
+          // Image picker UI
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: _pickImage,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _selectedImage == null
+                        ? Icons.add_photo_alternate
+                        : Icons.check_circle,
+                    color: _selectedImage == null ? Colors.grey : Colors.green,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(_selectedImage == null
+                      ? 'Add image'
+                      : 'Image selected'),
+                  const Spacer(),
+                  if (_selectedImage != null)
+                    GestureDetector(
+                      onTap: () => setState(() => _selectedImage = null),
+                      child:
+                          const Icon(Icons.close, size: 18, color: Colors.red),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          // ✅ Visibility hint — only shown for My Team (not "Only Me")
+          if (_visibility == PostVisibility.myTeam) ...[
             const SizedBox(height: 8),
             Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: _visibility == PostVisibility.onlyMe
-                    ? const Color(0xFFFFF7ED)
-                    : const Color(0xFFEFF6FF),
+                color: const Color(0xFFEFF6FF),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Row(
+              child: const Row(
                 children: [
-                  Icon(
-                    _visibilityIcon,
-                    size: 14,
-                    color: _visibility == PostVisibility.onlyMe
-                        ? Colors.orange
-                        : const Color(0xFF155DFC),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _visibility == PostVisibility.onlyMe
-                        ? 'Only you can see this post'
-                        : 'Only your team members can see this post',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: _visibility == PostVisibility.onlyMe
-                          ? Colors.orange[700]
-                          : const Color(0xFF155DFC),
+                  Icon(Icons.group, size: 14, color: Color(0xFF155DFC)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Only your team members can see this post',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF155DFC),
+                      ),
                     ),
                   ),
                 ],

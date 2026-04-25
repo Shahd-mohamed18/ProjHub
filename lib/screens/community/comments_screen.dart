@@ -1,8 +1,14 @@
 // lib/screens/community/comments_screen.dart
 //
-// FIX: replaced hardcoded _currentUserId / _currentUserName constants
-// with values read from AuthCubit.
+// Changes:
+//  1. _CommentCard: shows delete (trash) icon ONLY if comment.userId == currentUserId.
+//  2. Delete shows confirmation dialog, then calls cubit.deleteComment.
+//  3. Invalid commentId ("0" or empty) shows error snackbar, skips API.
+//  4. Pull-to-refresh added to comment list.
+//  5. "Only Me" removed from visibility (handled in create_post_screen.dart).
 
+import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/auth/auth_cubit.dart';
@@ -26,6 +32,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
   final TextEditingController _commentController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   String? _replyingToName;
+  String? _replyingToCommentId;
 
   // ✅ Read real values from AuthCubit
   String get _currentUserId =>
@@ -41,8 +48,11 @@ class _CommentsScreenState extends State<CommentsScreen> {
     super.dispose();
   }
 
-  void _startReply(String userName) {
-    setState(() => _replyingToName = userName);
+  void _startReply(String userName, String commentId) {
+    setState(() {
+      _replyingToName = userName;
+      _replyingToCommentId = commentId;
+    });
     _commentController.text = '@$userName ';
     _focusNode.requestFocus();
     _commentController.selection = TextSelection.fromPosition(
@@ -51,14 +61,70 @@ class _CommentsScreenState extends State<CommentsScreen> {
   }
 
   void _cancelReply() {
-    setState(() => _replyingToName = null);
+    setState(() {
+      _replyingToName = null;
+      _replyingToCommentId = null;
+    });
     _commentController.clear();
     _focusNode.unfocus();
   }
 
+  // ✅ Delete confirmation dialog
+  void _confirmDeleteComment(
+      BuildContext context, CommunityCommentsCubit cubit, String commentId) {
+    // Guard: invalid id
+    if (commentId.isEmpty || commentId == '0' || commentId.startsWith('temp_')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot delete this comment (not yet saved to server).'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Comment',
+            style: TextStyle(fontWeight: FontWeight.w700)),
+        content: const Text(
+            'Are you sure you want to delete this comment? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel',
+                style: TextStyle(color: Color(0xFF6A7282))),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              cubit.deleteComment(
+                postId: widget.post.id,
+                commentId: commentId,
+                userId: _currentUserId,
+              );
+              // Decrement comment count in CommunityCubit
+              try {
+                context.read<CommunityCubit>().decrementCommentCount(widget.post.id);
+              } catch (_) {}
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Delete',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // ✅ Use same repo toggle as the rest of the app
     final repo = useRealApi
         ? ApiCommunityRepository()
         : MockCommunityRepository();
@@ -113,38 +179,61 @@ class _CommentsScreenState extends State<CommentsScreen> {
 
                     if (state is CommentsPostLoaded) {
                       if (state.comments.isEmpty) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                        return RefreshIndicator(
+                          onRefresh: () => context
+                              .read<CommunityCommentsCubit>()
+                              .loadComments(widget.post.id),
+                          child: ListView(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                             children: [
-                              Icon(Icons.chat_bubble_outline,
-                                  size: 48, color: Colors.grey[400]),
-                              const SizedBox(height: 12),
-                              Text(
-                                'No comments yet\nBe the first!',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.grey[600]),
+                              SizedBox(
+                                height: 200,
+                                child: Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.chat_bubble_outline,
+                                          size: 48, color: Colors.grey[400]),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        'No comments yet\nBe the first!',
+                                        textAlign: TextAlign.center,
+                                        style:
+                                            TextStyle(color: Colors.grey[600]),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ],
                           ),
                         );
                       }
 
-                      return ListView.builder(
-                        padding:
-                            const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                        itemCount: state.comments.length,
-                        itemBuilder: (context, index) {
-                          final comment = state.comments[index];
-                          return _CommentCard(
-                            comment: comment,
-                            onLike: () => context
-                                .read<CommunityCommentsCubit>()
-                                .toggleCommentLike(
-                                    widget.post.id, comment.id),
-                            onReply: () => _startReply(comment.userName),
-                          );
-                        },
+                      // ✅ Pull-to-refresh wrapping the comment list
+                      return RefreshIndicator(
+                        onRefresh: () => context
+                            .read<CommunityCommentsCubit>()
+                            .loadComments(widget.post.id),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                          itemCount: state.comments.length,
+                          itemBuilder: (context, index) {
+                            final comment = state.comments[index];
+                            final cubit =
+                                context.read<CommunityCommentsCubit>();
+                            return _CommentCard(
+                              comment: comment,
+                              currentUserId: _currentUserId,
+                              onLike: () => cubit.toggleCommentLike(
+                                  widget.post.id, comment.id),
+                              onReply: () =>
+                                  _startReply(comment.userName, comment.id),
+                              onDelete: () => _confirmDeleteComment(
+                                  context, cubit, comment.id),
+                            );
+                          },
+                        ),
                       );
                     }
 
@@ -243,26 +332,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
           ],
           if (widget.post.attachmentName != null) ...[
             const SizedBox(height: 8),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: ShapeDecoration(
-                color: const Color(0xFFF9FAFB),
-                shape: RoundedRectangleBorder(
-                  side: const BorderSide(color: Color(0xFFE5E7EB)),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.attach_file, size: 16),
-                  const SizedBox(width: 8),
-                  Text(widget.post.attachmentName!,
-                      style: const TextStyle(
-                          color: Color(0xFF4A5565), fontSize: 12)),
-                ],
-              ),
-            ),
+            _PostAttachment(attachmentName: widget.post.attachmentName!),
           ],
           const SizedBox(height: 10),
           const Divider(height: 1),
@@ -395,22 +465,30 @@ class _CommentsScreenState extends State<CommentsScreen> {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
 
-    // ✅ Use real UID and name
     final userId = _currentUserId;
-    final userName = _currentUserName;
+    final userName = _currentUserName.isNotEmpty
+        ? _currentUserName
+        : (FirebaseAuth.instance.currentUser?.displayName ?? '');
+    final replyToCommentId = _replyingToCommentId;
+    final replyToName = _replyingToName;
 
-    print('💬 [COMMENT] userId: $userId  userName: $userName');
+    print('💬 [COMMENT] userId: $userId  userName: $userName  replyTo: $replyToCommentId');
+
+    _commentController.clear();
+    _focusNode.unfocus();
+    setState(() {
+      _replyingToName = null;
+      _replyingToCommentId = null;
+    });
 
     context.read<CommunityCommentsCubit>().addComment(
           postId: widget.post.id,
           content: text,
           userId: userId,
           userName: userName,
+          replyToCommentId: replyToCommentId,
+          replyToName: replyToName,
         );
-
-    _commentController.clear();
-    _focusNode.unfocus();
-    setState(() => _replyingToName = null);
 
     try {
       context.read<CommunityCubit>().incrementCommentCount(widget.post.id);
@@ -419,18 +497,26 @@ class _CommentsScreenState extends State<CommentsScreen> {
 }
 
 // ─────────────────────────────────────────────
-// Comment Card — unchanged
+// Comment Card — with nested replies + delete button
 // ─────────────────────────────────────────────
 class _CommentCard extends StatelessWidget {
   final CommunityCommentModel comment;
+  final String currentUserId;
   final VoidCallback onLike;
   final VoidCallback onReply;
+  final VoidCallback onDelete;
 
   const _CommentCard({
     required this.comment,
+    required this.currentUserId,
     required this.onLike,
     required this.onReply,
+    required this.onDelete,
   });
+
+  // ✅ Delete button only shown for own comments
+  bool get _isOwner =>
+      comment.userId.isNotEmpty && comment.userId == currentUserId;
 
   @override
   Widget build(BuildContext context) {
@@ -444,7 +530,9 @@ class _CommentCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Main comment header ──
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CircleAvatar(
                 radius: 16,
@@ -467,11 +555,25 @@ class _CommentCard extends StatelessWidget {
                   ],
                 ),
               ),
+              // ✅ Delete button — only if this is the current user's comment
+              if (_isOwner)
+                GestureDetector(
+                  onTap: onDelete,
+                  child: const Padding(
+                    padding: EdgeInsets.only(left: 8),
+                    child: Icon(
+                      Icons.delete_outline,
+                      size: 18,
+                      color: Colors.red,
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 8),
           Text(comment.content, style: const TextStyle(fontSize: 14)),
           const SizedBox(height: 8),
+          // ── Like + Reply actions ──
           Row(
             children: [
               GestureDetector(
@@ -506,6 +608,182 @@ class _CommentCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          // ── Nested replies inside the same card ──
+          if (comment.replies.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(height: 1, color: const Color(0xFFF0F0F0)),
+            ...comment.replies.map((reply) => _ReplyBubble(
+                  reply: reply,
+                  currentUserId: currentUserId,
+                  onDeleteReply: onDelete,
+                )),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Reply Bubble — indented, inside parent card
+// ─────────────────────────────────────────────
+class _ReplyBubble extends StatelessWidget {
+  final CommunityCommentModel reply;
+  final String currentUserId;
+  final VoidCallback onDeleteReply;
+
+  const _ReplyBubble({
+    required this.reply,
+    required this.currentUserId,
+    required this.onDeleteReply,
+  });
+
+  bool get _isOwner =>
+      reply.userId.isNotEmpty && reply.userId == currentUserId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10, left: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Indent line
+          Container(
+            width: 2,
+            height: 36,
+            margin: const EdgeInsets.only(right: 10, top: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFFDBEAFE),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          CircleAvatar(
+            radius: 13,
+            backgroundColor: const Color(0xFFDBEAFE),
+            child: Text(reply.userInitial,
+                style: const TextStyle(
+                    color: Color(0xFF155DFC), fontSize: 11)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Text(reply.userName,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 13)),
+                          if (reply.replyToName != null) ...[
+                            const SizedBox(width: 4),
+                            Text('→ @${reply.replyToName}',
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF155DFC))),
+                          ],
+                        ],
+                      ),
+                    ),
+                    // ✅ Delete for own replies
+                    if (_isOwner)
+                      GestureDetector(
+                        onTap: onDeleteReply,
+                        child: const Padding(
+                          padding: EdgeInsets.only(left: 6),
+                          child: Icon(Icons.delete_outline,
+                              size: 15, color: Colors.red),
+                        ),
+                      ),
+                  ],
+                ),
+                Text(reply.timeAgo,
+                    style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                const SizedBox(height: 3),
+                Text(reply.content, style: const TextStyle(fontSize: 13)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Post Attachment — network / local / fallback
+// ─────────────────────────────────────────────
+class _PostAttachment extends StatelessWidget {
+  final String attachmentName;
+  const _PostAttachment({required this.attachmentName});
+
+  bool get _isNetworkImage =>
+      attachmentName.startsWith('http://') ||
+      attachmentName.startsWith('https://');
+
+  bool get _isLocalFile =>
+      attachmentName.startsWith('/') ||
+      attachmentName.startsWith('file://');
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isNetworkImage) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          attachmentName,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _fileFallback(),
+          loadingBuilder: (_, child, progress) {
+            if (progress == null) return child;
+            return Container(
+              height: 180,
+              color: const Color(0xFFF3F4F6),
+              child: const Center(child: CircularProgressIndicator()),
+            );
+          },
+        ),
+      );
+    }
+    if (_isLocalFile) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.file(
+          File(attachmentName.replaceFirst('file://', '')),
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _fileFallback(),
+        ),
+      );
+    }
+    return _fileFallback();
+  }
+
+  Widget _fileFallback() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: ShapeDecoration(
+        color: const Color(0xFFF9FAFB),
+        shape: RoundedRectangleBorder(
+          side: const BorderSide(color: Color(0xFFE5E7EB)),
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.attach_file, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              attachmentName.split('/').last,
+              style: const TextStyle(color: Color(0xFF4A5565), fontSize: 12),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),

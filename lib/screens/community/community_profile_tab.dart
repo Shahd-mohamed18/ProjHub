@@ -1,4 +1,5 @@
 // lib/screens/community/community_profile_tab.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/community/community_cubit.dart';
@@ -143,26 +144,7 @@ class _MyPostCard extends StatelessWidget {
           // Attachment
           if (post.attachmentName != null) ...[
             const SizedBox(height: 8),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: ShapeDecoration(
-                color: const Color(0xFFF9FAFB),
-                shape: RoundedRectangleBorder(
-                  side: const BorderSide(color: Color(0xFFE5E7EB)),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.attach_file, size: 16),
-                  const SizedBox(width: 8),
-                  Text(post.attachmentName!,
-                      style: const TextStyle(
-                          color: Color(0xFF4A5565), fontSize: 12)),
-                ],
-              ),
-            ),
+            _PostAttachmentCard(attachmentName: post.attachmentName!),
           ],
           const SizedBox(height: 12),
           const Divider(height: 1),
@@ -266,12 +248,6 @@ class _PostMenu extends StatelessWidget {
           icon: Icons.group,
           label: 'My Team',
           isSelected: post.visibility == PostVisibility.myTeam,
-        ),
-        _visibilityItem(
-          value: 'onlyMe',
-          icon: Icons.lock,
-          label: 'Only Me',
-          isSelected: post.visibility == PostVisibility.onlyMe,
         ),
         // ── Divider ──
         const PopupMenuDivider(),
@@ -425,6 +401,85 @@ class _VisibilityBadge extends StatelessWidget {
           const SizedBox(width: 3),
           Text(label,
               style: TextStyle(fontSize: 10, color: color)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Post Attachment — network URL → Image.network
+//                  local path  → Image.file
+//                  else        → file chip
+// ─────────────────────────────────────────────
+class _PostAttachmentCard extends StatelessWidget {
+  final String attachmentName;
+  const _PostAttachmentCard({required this.attachmentName});
+
+  bool get _isNetworkImage =>
+      attachmentName.startsWith('http://') ||
+      attachmentName.startsWith('https://');
+
+  bool get _isLocalFile =>
+      attachmentName.startsWith('/') ||
+      attachmentName.startsWith('file://');
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isNetworkImage) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          attachmentName,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _fileFallback(),
+          loadingBuilder: (_, child, progress) {
+            if (progress == null) return child;
+            return Container(
+              height: 180,
+              color: const Color(0xFFF3F4F6),
+              child: const Center(child: CircularProgressIndicator()),
+            );
+          },
+        ),
+      );
+    }
+    if (_isLocalFile) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.file(
+          File(attachmentName.replaceFirst('file://', '')),
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _fileFallback(),
+        ),
+      );
+    }
+    return _fileFallback();
+  }
+
+  Widget _fileFallback() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: ShapeDecoration(
+        color: const Color(0xFFF9FAFB),
+        shape: RoundedRectangleBorder(
+          side: const BorderSide(color: Color(0xFFE5E7EB)),
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.attach_file, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              attachmentName.split('/').last,
+              style: const TextStyle(color: Color(0xFF4A5565), fontSize: 12),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );

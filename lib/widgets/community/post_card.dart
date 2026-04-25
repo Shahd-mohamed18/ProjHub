@@ -1,4 +1,5 @@
 // lib/widgets/community/post_card.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:onboard/models/CommunityModels/post_model.dart';
 
@@ -81,7 +82,49 @@ class PostCard extends StatelessWidget {
     );
   }
 
+  bool get _isNetworkImage =>
+      (post.attachmentName ?? '').startsWith('http://') ||
+      (post.attachmentName ?? '').startsWith('https://');
+
+  bool get _isLocalFile =>
+      (post.attachmentName ?? '').startsWith('/') ||
+      (post.attachmentName ?? '').startsWith('file://');
+
   Widget _buildAttachment() {
+    if (_isNetworkImage) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          post.attachmentName!,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildFileFallback(),
+          loadingBuilder: (_, child, progress) {
+            if (progress == null) return child;
+            return Container(
+              height: 180,
+              color: const Color(0xFFF3F4F6),
+              child: const Center(child: CircularProgressIndicator()),
+            );
+          },
+        ),
+      );
+    }
+    if (_isLocalFile) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.file(
+          File(post.attachmentName!.replaceFirst('file://', '')),
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildFileFallback(),
+        ),
+      );
+    }
+    return _buildFileFallback();
+  }
+
+  Widget _buildFileFallback() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -96,8 +139,13 @@ class PostCard extends StatelessWidget {
         children: [
           const Icon(Icons.attach_file, size: 16),
           const SizedBox(width: 8),
-          Text(post.attachmentName!,
-              style: const TextStyle(color: Color(0xFF4A5565), fontSize: 12)),
+          Expanded(
+            child: Text(
+              post.attachmentName!.split('/').last,
+              style: const TextStyle(color: Color(0xFF4A5565), fontSize: 12),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );
