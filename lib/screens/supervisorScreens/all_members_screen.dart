@@ -2,51 +2,143 @@
 import 'package:flutter/material.dart';
 import 'package:onboard/models/TeamModels/team_model.dart';
 import 'package:onboard/models/TeamModels/team_member.dart';
+import 'package:onboard/screens/chatScreens/chat_screen.dart';
+import 'package:onboard/services/team_api_service.dart';
 
-class AllMembersScreen extends StatelessWidget {
+class AllMembersScreen extends StatefulWidget {
   final List<TeamModel> teams;
 
   const AllMembersScreen({super.key, required this.teams});
 
   @override
-  Widget build(BuildContext context) {
-    // Collect all unique members
+  State<AllMembersScreen> createState() => _AllMembersScreenState();
+}
+
+class _AllMembersScreenState extends State<AllMembersScreen> {
+  bool _isLoading = true;
+  List<MemberWithTeam> _assistants = [];
+  List<MemberWithTeam> _students = [];
+  int _totalMembers = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAllTeamDetails();
+  }
+
+  Future<void> _fetchAllTeamDetails() async {
+    setState(() {
+      _isLoading = true;
+    });
+
     final Map<String, MemberWithTeam> membersMap = {};
+    final teamApiService = TeamApiService();
 
-    for (var team in teams) {
-      // Add assistants
-      for (var assistant in team.assistants) {
-        if (!membersMap.containsKey(assistant.id)) {
-          membersMap[assistant.id] = MemberWithTeam(
-            member: assistant,
-            teams: [team.name],
-            role: 'Assistant',
-          );
-        } else {
-          membersMap[assistant.id]!.teams.add(team.name);
+    for (var team in widget.teams) {
+      try {
+        
+        final teamDetails = await teamApiService.getTeamDetails(team.id);
+        
+        if (teamDetails != null) {
+          print('📋 Team: ${teamDetails.name}');
+          print('   Assistants: ${teamDetails.assistants.length}');
+          print('   Members: ${teamDetails.members.length}');
+          
+          // Add assistants
+          for (var assistant in teamDetails.assistants) {
+            if (!membersMap.containsKey(assistant.id)) {
+              membersMap[assistant.id] = MemberWithTeam(
+                member: assistant,
+                teams: [teamDetails.name],
+                role: 'Assistant',
+              );
+            } else {
+              membersMap[assistant.id]!.teams.add(teamDetails.name);
+            }
+          }
+
+          // Add members (students only, exclude supervisor)
+          for (var member in teamDetails.members) {
+            // استبعاد المشرف (الدكتور)
+            if (member.id == teamDetails.supervisorId) {
+              continue;
+            }
+            // استبعاد المعيدين (اللي عندهم position)
+            if (member.position != null && member.position!.isNotEmpty) {
+              continue;
+            }
+            
+            if (!membersMap.containsKey(member.id)) {
+              membersMap[member.id] = MemberWithTeam(
+                member: member,
+                teams: [teamDetails.name],
+                role: member.role ?? 'Student',
+              );
+            } else {
+              membersMap[member.id]!.teams.add(teamDetails.name);
+            }
+          }
         }
-      }
+      } catch (e) {
+        print('⚠️ Error fetching team details for ${team.id}: $e');
+        // Fallback: استخدام البيانات الموجودة
+        for (var assistant in team.assistants) {
+          if (!membersMap.containsKey(assistant.id)) {
+            membersMap[assistant.id] = MemberWithTeam(
+              member: assistant,
+              teams: [team.name],
+              role: 'Assistant',
+            );
+          } else {
+            membersMap[assistant.id]!.teams.add(team.name);
+          }
+        }
 
-      // Add members
-      for (var member in team.members) {
-        if (!membersMap.containsKey(member.id)) {
-          membersMap[member.id] = MemberWithTeam(
-            member: member,
-            teams: [team.name],
-            role: member.role ?? 'Member',
-          );
-        } else {
-          membersMap[member.id]!.teams.add(team.name);
+        for (var member in team.members) {
+          if (member.id == team.supervisorId) continue;
+          if (member.position != null && member.position!.isNotEmpty) continue;
+          
+          if (!membersMap.containsKey(member.id)) {
+            membersMap[member.id] = MemberWithTeam(
+              member: member,
+              teams: [team.name],
+              role: member.role ?? 'Student',
+            );
+          } else {
+            membersMap[member.id]!.teams.add(team.name);
+          }
         }
       }
     }
 
     final members = membersMap.values.toList();
+    
+    setState(() {
+      _assistants = members.where((m) => m.role == 'Assistant').toList();
+      _students = members.where((m) => m.role != 'Assistant').toList();
+      _totalMembers = members.length;
+      _isLoading = false;
+    });
+    
+    print('📊 Final counts - Assistants: ${_assistants.length}, Students: ${_students.length}, Total: $_totalMembers');
+  }
 
-    // Separate assistants and members
-    final assistants = members.where((m) => m.role == 'Assistant').toList();
-    final students = members.where((m) => m.role != 'Assistant').toList();
+  // ✅ دالة للتنقل إلى شاشة الشات
+  void _navigateToChat(TeamMember member) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatScreen(
+          otherUserId: member.id,
+          otherUserName: member.name,
+          otherUserPhoto: member.photoUrl,
+        ),
+      ),
+    );
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -107,7 +199,7 @@ class AllMembersScreen extends StatelessWidget {
                 ),
               ),
 
-              // Stats - تم إصلاح مشكلة overflow
+              // Stats
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: SingleChildScrollView(
@@ -117,19 +209,19 @@ class AllMembersScreen extends StatelessWidget {
                     children: [
                       _buildStatChip(
                         'Total',
-                        members.length.toString(),
+                        _totalMembers.toString(),
                         Colors.blue,
                       ),
                       const SizedBox(width: 8),
                       _buildStatChip(
                         'Assistants',
-                        assistants.length.toString(),
+                        _assistants.length.toString(),
                         Colors.purple,
                       ),
                       const SizedBox(width: 8),
                       _buildStatChip(
                         'Students',
-                        students.length.toString(),
+                        _students.length.toString(),
                         Colors.green,
                       ),
                     ],
@@ -139,44 +231,43 @@ class AllMembersScreen extends StatelessWidget {
 
               // Members List
               Expanded(
-                child: DefaultTabController(
-                  length: 2,
-                  child: Column(
-                    children: [
-                      // Tabs
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: TabBar(
-                          indicator: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            color: const Color(0xFF1E3A8A),
-                          ),
-                          labelColor: Colors.white,
-                          unselectedLabelColor: Colors.black,
-                          tabs: const [
-                            Tab(text: 'Assistants'),
-                            Tab(text: 'Students'),
-                          ],
-                        ),
-                      ),
-
-                      Expanded(
-                        child: TabBarView(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : DefaultTabController(
+                        length: 2,
+                        child: Column(
                           children: [
-                            // Assistants Tab
-                            _buildMembersList(assistants, isAssistant: true),
-                            // Students Tab
-                            _buildMembersList(students),
+                            // Tabs
+                            Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: TabBar(
+                                indicator: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  color: const Color(0xFF1E3A8A),
+                                ),
+                                labelColor: Colors.white,
+                                unselectedLabelColor: Colors.black,
+                                tabs: const [
+                                  Tab(text: 'Assistants'),
+                                  Tab(text: 'Students'),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: TabBarView(
+                                children: [
+                                  _buildMembersList(_assistants, isAssistant: true),
+                                  _buildMembersList(_students),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
               ),
             ],
           ),
@@ -309,7 +400,9 @@ class AllMembersScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      member.displayRole,
+                      isAssistant
+                          ? (member.position ?? member.role ?? 'Assistant')
+                          : (member.role ?? member.position ?? 'Student'),
                       style: const TextStyle(
                         fontSize: 14,
                         color: Color(0xFF495565),
@@ -344,22 +437,25 @@ class AllMembersScreen extends StatelessWidget {
                 ),
               ),
 
-              // Message button
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Text(
-                  'Message',
-                  style: TextStyle(
-                    color: Color(0xFF155CFB),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+              // ✅ Message button - نفس طريقة TeamDetailsScreen
+              GestureDetector(
+                onTap: () => _navigateToChat(member),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Text(
+                    'Message',
+                    style: TextStyle(
+                      color: Color(0xFF155CFB),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ),

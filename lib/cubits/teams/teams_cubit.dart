@@ -1,4 +1,3 @@
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/teams/teams_state.dart';
 import 'package:onboard/models/TeamModels/team_model.dart';
@@ -143,26 +142,26 @@ class TeamsCubit extends Cubit<TeamsState> {
 
   // ✅ جلب الطلاب من Firebase فقط (غير المعيدين)
   // في TeamsCubit - تعديل دالة جلب الطلاب
+  // في teams_cubit.dart - استبدال دالة getStudentsFromFirebase فقط
   Future<List<TeamMember>> getStudentsFromFirebase() async {
     try {
       print('📤 Fetching all users from Firebase...');
 
-      // ✅ إزالة فلترة role لجلب جميع المستخدمين
       final querySnapshot = await _firestore.collection('users').get();
-
       final List<TeamMember> users = [];
 
       for (var doc in querySnapshot.docs) {
         final userData = doc.data();
-        final role = userData['role'] ?? 'user';
+        // ✅ استخدام UserModel.fromMap
+        final user = UserModel.fromMap(doc.id, userData);
 
         users.add(
           TeamMember(
-            id: doc.id,
-            name: userData['fullName'] ?? userData['name'] ?? 'Unknown',
-            role: role == 'user' ? (userData['track'] ?? 'Student') : null,
-            position: role != 'user' ? (userData['position'] ?? role) : null,
-            photoUrl: userData['photoUrl'],
+            id: user.uid,
+            name: user.fullName,
+            role: user.track, // ✅ التخصص للطلاب
+            position: user.position, // ✅ المنصب للمعيدين
+            photoUrl: user.photoUrl,
             isSelected: false,
           ),
         );
