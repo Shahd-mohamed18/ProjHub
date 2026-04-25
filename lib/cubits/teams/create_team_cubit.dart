@@ -1,4 +1,5 @@
 
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:onboard/models/TeamModels/team_member.dart';
@@ -10,7 +11,7 @@ import 'create_team_state.dart';
 class CreateTeamCubit extends Cubit<CreateTeamState> {
   CreateTeamCubit() : super(CreateTeamInitial());
 
-  final TeamApiService _teamApiService = TeamApiService(); // 👈 إضافة الـ API Service
+  final TeamApiService _teamApiService = TeamApiService();
 
   // Data
   List<TeamMember> _allAssistants = [];
@@ -23,7 +24,7 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // جلب المستخدمين من Firebase
+  // ✅ جلب المستخدمين من Firebase باستخدام UserModel
   Future<void> loadUsersFromFirebase() async {
     emit(UsersLoading());
     
@@ -35,21 +36,24 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
       
       for (var doc in querySnapshot.docs) {
         final userData = doc.data();
+        // ✅ استخدام UserModel المصمم بشكل صحيح
         final user = UserModel.fromMap(doc.id, userData);
         
         final teamMember = TeamMember(
           id: user.uid,
           name: user.fullName,
-          role: user.role == UserRole.user ? user.track : null,
-          position: user.role != UserRole.user ? user.position : null,
+          role: user.track,      // ✅ الطالب: التخصص (Flutter, Backend, AI)
+          position: user.position, // ✅ المعيد: المنصب (Teaching Assistant)
           photoUrl: user.photoUrl,
         );
         
+        // تصنيف المستخدمين حسب دورهم
         if (user.role == UserRole.assistant) {
           _allAssistants.add(teamMember);
         } else if (user.role == UserRole.user) {
           _allMembers.add(teamMember);
         }
+        // تجاهل المشرفين لأنهم لا يضافون كأعضاء في الفريق
       }
       
       emit(UsersSearchLoaded(
@@ -57,7 +61,10 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
         members: _allMembers,
       ));
       
+      print('✅ Loaded ${_allAssistants.length} assistants and ${_allMembers.length} students');
+      
     } catch (e) {
+      print('❌ Error loading users: $e');
       emit(CreateTeamError(message: 'Failed to load users: $e'));
     }
   }
@@ -142,7 +149,7 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
     ));
   }
 
-  // إنشاء الفريق - متصل بالـ API ✅
+  // ✅ إنشاء الفريق
   Future<void> createTeam({
     required String teamName,
     required String projectName,
@@ -162,7 +169,6 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
       print('   Assistants: ${_selectedAssistants.length}');
       print('   Members: ${_selectedMembers.length}');
 
-      // 👈 محاولة إنشاء الفريق على الباك اند
       final backendTeam = await _teamApiService.createTeam(
         name: teamName.trim(),
         projectName: projectName.trim().isEmpty ? null : projectName.trim(),
@@ -175,27 +181,14 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
 
       if (backendTeam != null) {
         _createdTeam = backendTeam;
-        print('✅ Team created on backend successfully!');
+        print('✅ Team created successfully with ID: ${backendTeam.id}');
+        emit(TeamCreated(teamId: _createdTeam!.id));
       } else {
-        // Fallback: خزن محلياً
-        print('⚠️ Backend failed, creating team locally...');
-        _createdTeam = TeamModel(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          name: teamName.trim(),
-          projectName: projectName.trim().isEmpty ? null : projectName.trim(),
-          description: description.trim().isEmpty ? null : description.trim(),
-          supervisorId: supervisorId,
-          supervisorName: supervisorName,
-          assistants: List.from(_selectedAssistants),
-          members: List.from(_selectedMembers),
-          createdAt: DateTime.now(),
-          activeProjects: 1,
-        );
+        print('❌ Backend failed to create team');
+        emit(CreateTeamError(message: 'Failed to create team. Please try again.'));
       }
-
-      emit(TeamCreated(teamId: _createdTeam!.id));
     } catch (e, stack) {
-      print("Team creation failed: $e");
+      print("❌ Team creation failed: $e");
       print(stack);
       emit(CreateTeamError(message: 'Failed to create team: $e'));
     }
