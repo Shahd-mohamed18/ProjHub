@@ -14,12 +14,12 @@ class TeamsCubit extends Cubit<TeamsState> {
 
   final List<TeamModel> _teams = [];
 
-  // تحميل الفرق حسب صلاحية المستخدم
+  
   void loadTeamsForUser(String userId, UserRole userRole) {
     emit(TeamsLoading());
 
     try {
-      print('📋 Loading teams for user: $userId, role: $userRole');
+      print('---------- Loading teams for user: $userId, role: $userRole');
 
       _teamApiService
           .getMyTeams(userId)
@@ -27,9 +27,9 @@ class TeamsCubit extends Cubit<TeamsState> {
             if (backendTeams.isNotEmpty) {
               _teams.clear();
               _teams.addAll(backendTeams);
-              print('📋 Loaded ${_teams.length} teams from backend');
+              print('---------- Loaded ${_teams.length} teams from backend');
             } else if (_teams.isEmpty) {
-              print('📋 No backend teams, using mock data');
+              print('---------- No backend teams, using mock data');
               if (userRole == UserRole.supervisor) {
                 _teams.addAll(_getMockTeamsForSupervisor(userId));
               } else if (userRole == UserRole.assistant) {
@@ -42,7 +42,7 @@ class TeamsCubit extends Cubit<TeamsState> {
             emit(TeamsLoaded(teams: List.from(_teams)));
           })
           .catchError((e) {
-            print('⚠️ Error loading teams from backend: $e');
+            print('---------- Error loading teams from backend: $e');
             if (_teams.isEmpty) {
               if (userRole == UserRole.supervisor) {
                 _teams.addAll(_getMockTeamsForSupervisor(userId));
@@ -59,17 +59,17 @@ class TeamsCubit extends Cubit<TeamsState> {
     }
   }
 
-  // إضافة فريق جديد
+  
   void addTeam(TeamModel team) {
-    print('➕ Adding team: ${team.name}');
+    print('---------- Adding team: ${team.name}');
     _teams.add(team);
     emit(TeamsLoaded(teams: List.from(_teams)));
   }
 
-  // حذف فريق
+
   Future<bool> deleteTeam(String teamId) async {
     try {
-      print('🗑️ Deleting team: $teamId');
+      print('---------- Deleting team: $teamId');
 
       final backendSuccess = await _teamApiService.deleteTeam(teamId);
 
@@ -77,21 +77,21 @@ class TeamsCubit extends Cubit<TeamsState> {
       emit(TeamsLoaded(teams: List.from(_teams)));
 
       if (backendSuccess) {
-        print('✅ Team deleted from backend successfully');
+        print('---------- Team deleted from backend successfully');
       } else {
-        print('⚠️ Team deleted locally only (backend failed)');
+        print('---------- Team deleted locally only (backend failed)');
       }
 
       return true;
     } catch (e) {
-      print('❌ Error deleting team: $e');
+      print('---------- Error deleting team: $e');
       _teams.removeWhere((team) => team.id == teamId);
       emit(TeamsLoaded(teams: List.from(_teams)));
       return false;
     }
   }
 
-  // تحديث فريق
+
   void updateTeam(TeamModel updatedTeam) {
     final index = _teams.indexWhere((team) => team.id == updatedTeam.id);
     if (index != -1) {
@@ -100,25 +100,25 @@ class TeamsCubit extends Cubit<TeamsState> {
     }
   }
 
-  // ✅ إضافة أعضاء جدد للفريق (من Firebase)
+  
   Future<bool> addMembersToTeam({
     required String teamId,
     required List<TeamMember> newMembers,
   }) async {
     try {
-      print('➕ Adding ${newMembers.length} members to team: $teamId');
+      print('---------- Adding ${newMembers.length} members to team: $teamId');
 
-      // جمع IDs الأعضاء الجدد
+    
       final memberIds = newMembers.map((m) => m.id).toList();
 
-      // استدعاء الـ API
+      
       final success = await _teamApiService.addMembersToTeam(
         teamId: teamId,
         memberIds: memberIds,
       );
 
       if (success) {
-        // تحديث القائمة المحلية
+        
         final teamIndex = _teams.indexWhere((team) => team.id == teamId);
         if (teamIndex != -1) {
           final updatedTeam = _teams[teamIndex].copyWith(
@@ -128,49 +128,49 @@ class TeamsCubit extends Cubit<TeamsState> {
         }
 
         emit(TeamsLoaded(teams: List.from(_teams)));
-        print('✅ Members added successfully and local state updated');
+        print('---------- Members added successfully and local state updated');
         return true;
       } else {
-        print('⚠️ Failed to add members to backend');
+        print('---------- Failed to add members to backend');
         return false;
       }
     } catch (e) {
-      print('❌ Error adding members to team: $e');
+      print('---------- Error adding members to team: $e');
       return false;
     }
   }
 
-  // ✅ جلب الطلاب من Firebase فقط (غير المعيدين)
-  // في TeamsCubit - تعديل دالة جلب الطلاب
-  // في teams_cubit.dart - استبدال دالة getStudentsFromFirebase فقط
+
+  
+  
   Future<List<TeamMember>> getStudentsFromFirebase() async {
     try {
-      print('📤 Fetching all users from Firebase...');
+      print('---------- Fetching all users from Firebase...');
 
       final querySnapshot = await _firestore.collection('users').get();
       final List<TeamMember> users = [];
 
       for (var doc in querySnapshot.docs) {
         final userData = doc.data();
-        // ✅ استخدام UserModel.fromMap
+        
         final user = UserModel.fromMap(doc.id, userData);
 
         users.add(
           TeamMember(
             id: user.uid,
             name: user.fullName,
-            role: user.track, // ✅ التخصص للطلاب
-            position: user.position, // ✅ المنصب للمعيدين
+            role: user.track, 
+            position: user.position,
             photoUrl: user.photoUrl,
             isSelected: false,
           ),
         );
       }
 
-      print('✅ Found ${users.length} users from Firebase');
+      print('---------- Found ${users.length} users from Firebase');
       return users;
     } catch (e) {
-      print('❌ Error fetching users from Firebase: $e');
+      print('---------- Error fetching users from Firebase: $e');
       return [];
     }
   }
@@ -193,12 +193,7 @@ class TeamsCubit extends Cubit<TeamsState> {
             position: 'Teaching Assistant',
             photoUrl: '',
           ),
-          TeamMember(
-            id: 'a2',
-            name: 'Mohamed Hassan',
-            position: 'Lab Assistant',
-            photoUrl: '',
-          ),
+          
         ],
         members: [
           TeamMember(
@@ -255,12 +250,7 @@ class TeamsCubit extends Cubit<TeamsState> {
             position: 'Teaching Assistant',
             photoUrl: '',
           ),
-          TeamMember(
-            id: 'a2',
-            name: 'Mohamed Hassan',
-            position: 'Lab Assistant',
-            photoUrl: '',
-          ),
+          
         ],
         members: [
           TeamMember(

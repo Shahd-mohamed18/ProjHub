@@ -13,7 +13,6 @@ class ChatCubit extends Cubit<ChatState> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // تحميل قائمة المحادثات
   Stream<List<ChatUser>> getChatsStream() {
     final currentUserId = _auth.currentUser?.uid;
     if (currentUserId == null) return Stream.value([]);
@@ -35,7 +34,7 @@ class ChatCubit extends Cubit<ChatState> {
             final lastMessageTime = chatData['lastMessageTime'] as Timestamp?;
             final isRead = chatData['readBy']?.contains(currentUserId) ?? false;
 
-            // جلب بيانات المستخدم الآخر
+            
             try {
               DocumentSnapshot userDoc = await _firestore
                   .collection('users')
@@ -60,7 +59,7 @@ class ChatCubit extends Cubit<ChatState> {
             }
           }
 
-          // ترتيب حسب آخر رسالة
+          
           chatUsers.sort((a, b) {
             if (a.lastMessageTime == null && b.lastMessageTime == null) return 0;
             if (a.lastMessageTime == null) return 1;
@@ -72,7 +71,6 @@ class ChatCubit extends Cubit<ChatState> {
         });
   }
 
-  // تحميل رسائل محادثة معينة
   Stream<List<MessageModel>> getMessagesStream(String otherUserId) {
     final currentUserId = _auth.currentUser?.uid;
     if (currentUserId == null) return Stream.value([]);
@@ -93,7 +91,7 @@ class ChatCubit extends Cubit<ChatState> {
         });
   }
 
-  // إرسال رسالة
+
   Future<void> sendMessage(String otherUserId, String message) async {
     final currentUserId = _auth.currentUser?.uid;
     if (currentUserId == null || message.trim().isEmpty) return;
@@ -101,7 +99,7 @@ class ChatCubit extends Cubit<ChatState> {
     final chatId = getChatId(currentUserId, otherUserId);
 
     try {
-      // تحديث أو إنشاء المحادثة
+    
       await _firestore.collection('chats').doc(chatId).set({
         'users': [currentUserId, otherUserId],
         'lastMessage': message,
@@ -109,7 +107,7 @@ class ChatCubit extends Cubit<ChatState> {
         'readBy': [currentUserId],
       }, SetOptions(merge: true));
 
-      // إضافة الرسالة
+
       await _firestore
           .collection('chats')
           .doc(chatId)
@@ -129,7 +127,7 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  // تحديث حالة القراءة
+
   Future<void> markMessagesAsRead(String otherUserId) async {
     final currentUserId = _auth.currentUser?.uid;
     if (currentUserId == null) return;
@@ -144,11 +142,11 @@ class ChatCubit extends Cubit<ChatState> {
             'readBy': FieldValue.arrayUnion([currentUserId]),
           });
     } catch (e) {
-      // تجاهل الخطأ
+    
     }
   }
 
-  // جلب بيانات مستخدم
+  
   Future<Map<String, dynamic>?> getUserData(String userId) async {
     try {
       DocumentSnapshot doc = await _firestore
@@ -165,7 +163,7 @@ class ChatCubit extends Cubit<ChatState> {
     return null;
   }
 
-  // مسح الرسائل
+  
   void clearMessages() {
     emit(state.copyWith(
       errorMessage: null,

@@ -13,7 +13,7 @@ import 'package:onboard/screens/main_layout_navbar.dart';
 import 'package:onboard/screens/onboarding_screen.dart';
 import 'package:onboard/screens/projectScreens/add_project_screen.dart';
 import 'package:onboard/screens/projectScreens/project_screen.dart';
-import 'package:onboard/screens/AuthScreens/varification_email.dart';
+import 'package:onboard/screens/AuthScreens/verification_email_screen.dart';
 import 'package:onboard/screens/AuthScreens/welcome_screen.dart';
 import 'package:onboard/screens/AuthScreens/forget_password_screen.dart';
 import 'package:onboard/screens/community/community_screen.dart';
@@ -33,10 +33,10 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        // 🔴 تعديل بسيط: AuthCubit هيتعامل مع ApiService جواه
+        
         BlocProvider<AuthCubit>(
           create: (context) => AuthCubit()..initialize(),
-          // ملاحظة: AuthCubit دلوقتي بيستخدم ApiService جواه من غير ما نحتاج نعدل الـ constructor
+  
         ),
         BlocProvider<ProjectCubit>(
           create: (context) => ProjectCubit()..loadProjects(),
@@ -46,15 +46,15 @@ class MyApp extends StatelessWidget {
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'ProjHub', // غيرت الاسم عشان يكون matching مع التطبيق
-        theme: AppTheme.lightTheme,
+        title: 'ProjHub', 
+
         initialRoute: '/onboarding',
         routes: {
           '/onboarding': (context) => const OnboardingScreen(),
           '/welcome': (context) => const WelcomeScreen(),
           '/login': (context) => const LoginScreen(),
           '/signup': (context) => const SignUpScreen(),
-          '/verification': (context) => const VarificationEmail(),
+          '/verification': (context) => const VerificationEmailScreen(),
           '/main': (context) => const MainLayoutNavbar(),
           '/profile': (context) => const ProfileScreen(),
           '/forgetpassword': (context) => const ForgetPasswordScreen(),

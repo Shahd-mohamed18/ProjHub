@@ -1,5 +1,3 @@
-
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:onboard/models/TeamModels/team_member.dart';
@@ -24,7 +22,7 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // ✅ جلب المستخدمين من Firebase باستخدام UserModel
+  
   Future<void> loadUsersFromFirebase() async {
     emit(UsersLoading());
     
@@ -36,24 +34,24 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
       
       for (var doc in querySnapshot.docs) {
         final userData = doc.data();
-        // ✅ استخدام UserModel المصمم بشكل صحيح
+        
         final user = UserModel.fromMap(doc.id, userData);
         
         final teamMember = TeamMember(
           id: user.uid,
           name: user.fullName,
-          role: user.track,      // ✅ الطالب: التخصص (Flutter, Backend, AI)
-          position: user.position, // ✅ المعيد: المنصب (Teaching Assistant)
+          role: user.track,      
+          position: user.position, 
           photoUrl: user.photoUrl,
         );
         
-        // تصنيف المستخدمين حسب دورهم
+        
         if (user.role == UserRole.assistant) {
           _allAssistants.add(teamMember);
         } else if (user.role == UserRole.user) {
           _allMembers.add(teamMember);
         }
-        // تجاهل المشرفين لأنهم لا يضافون كأعضاء في الفريق
+        
       }
       
       emit(UsersSearchLoaded(
@@ -61,15 +59,15 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
         members: _allMembers,
       ));
       
-      print('✅ Loaded ${_allAssistants.length} assistants and ${_allMembers.length} students');
+      print('---------- Loaded ${_allAssistants.length} assistants and ${_allMembers.length} students');
       
     } catch (e) {
-      print('❌ Error loading users: $e');
+      print('---------- Error loading users: $e');
       emit(CreateTeamError(message: 'Failed to load users: $e'));
     }
   }
 
-  // البحث في المستخدمين
+  
   void searchUsers(String query) {
     if (_allAssistants.isEmpty && _allMembers.isEmpty) {
       return;
@@ -101,7 +99,7 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
     });
   }
 
-  // اختيار أو إلغاء اختيار معيد
+
   void toggleAssistant(TeamMember assistant) {
     final isSelected = _selectedAssistants.any((a) => a.id == assistant.id);
     
@@ -119,7 +117,7 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
     _refreshSearchResults();
   }
 
-  // اختيار أو إلغاء اختيار طالب
+  
   void toggleMember(TeamMember member) {
     final isSelected = _selectedMembers.any((m) => m.id == member.id);
     
@@ -137,7 +135,7 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
     _refreshSearchResults();
   }
 
-  // تحديث نتائج البحث بعد التحديد
+  
   void _refreshSearchResults() {
     emit(UsersSearchLoaded(
       assistants: _allAssistants.map((a) {
@@ -149,7 +147,7 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
     ));
   }
 
-  // ✅ إنشاء الفريق
+  
   Future<void> createTeam({
     required String teamName,
     required String projectName,
@@ -165,7 +163,7 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
         return;
       }
 
-      print('🚀 Creating team: $teamName');
+      print('---------- Creating team: $teamName');
       print('   Assistants: ${_selectedAssistants.length}');
       print('   Members: ${_selectedMembers.length}');
 
@@ -181,20 +179,20 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
 
       if (backendTeam != null) {
         _createdTeam = backendTeam;
-        print('✅ Team created successfully with ID: ${backendTeam.id}');
+        print('---------- Team created successfully with ID: ${backendTeam.id}');
         emit(TeamCreated(teamId: _createdTeam!.id));
       } else {
-        print('❌ Backend failed to create team');
+        print('---------- Backend failed to create team');
         emit(CreateTeamError(message: 'Failed to create team. Please try again.'));
       }
     } catch (e, stack) {
-      print("❌ Team creation failed: $e");
+      print("---------- Team creation failed: $e");
       print(stack);
       emit(CreateTeamError(message: 'Failed to create team: $e'));
     }
   }
 
-  // إعادة تعيين الحالة
+
   void reset() {
     _selectedAssistants = [];
     _selectedMembers = [];
@@ -204,7 +202,7 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
     emit(CreateTeamInitial());
   }
 
-  // جلب قائمة المختارين
+
   List<TeamMember> getSelectedAssistants() => List.from(_selectedAssistants);
   List<TeamMember> getSelectedMembers() => List.from(_selectedMembers);
   int getSelectedAssistantsCount() => _selectedAssistants.length;
