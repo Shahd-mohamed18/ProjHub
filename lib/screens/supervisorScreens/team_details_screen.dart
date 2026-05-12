@@ -687,20 +687,13 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
     );
   }
 
-  // ✅ دالة لجلب الطلاب فقط (استبعاد المعيدين)
-  // List<TeamMember> _getStudentsOnly() {
-  //   return _team.members.where((member) {
-  //     // استبعاد المعيدين (اللي عندهم position)
-  //     if (member.position != null && member.position!.isNotEmpty) return false;
-  //     return true;
-  //   }).toList();
-  // }
-  // ✅ دالة لجلب الطلاب فقط (استبعاد المعيدين والمشرف)
+  
+  
   List<TeamMember> _getStudentsOnly() {
     return _team.members.where((member) {
-      // استبعاد المشرف (الدكتور)
+    
       if (member.id == _team.supervisorId) return false;
-      // استبعاد المعيدين (اللي عندهم position)
+      
       if (member.position != null && member.position!.isNotEmpty) return false;
       return true;
     }).toList();
@@ -779,7 +772,7 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
     );
   }
 
-  // ✅ دالة عرض الطلاب مع الـ Track الخاص بهم
+  
   Widget _buildStudentTile(BuildContext context, TeamMember student) {
     String track = student.role ?? 'Student';
 

@@ -1,4 +1,6 @@
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
@@ -63,36 +65,43 @@ class _SignUpScreenState extends State<SignUpScreen> {
     });
   }
 
-  void _handleSignUp() {
-    if (!_formKey.currentState!.validate()) return;
+  void _handleSignUp() async {
+  if (!_formKey.currentState!.validate()) return;
 
-    final authCubit = context.read<AuthCubit>();
-
-    if (_selectedRole == UserRole.user) {
-      authCubit.signUpUser(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-        fullName: nameController.text.trim(),
-        university: universityController.text.trim(),
-        faculty: facultyController.text.trim(),
-        track: trackController.text.trim(),
-        photoUrl: _imageFile?.path,
-        context: context,
-      );
-    } else {
-      authCubit.signUpEducator(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-        fullName: nameController.text.trim(),
-        role: _selectedRole,
-        position: positionController.text.trim(),
-        department: departmentController.text.trim(),
-        photoUrl: _imageFile?.path,
-        context: context,
-      );
-    }
+  final authCubit = context.read<AuthCubit>();
+  
+  // تحويل XFile إلى File
+  File? imageFile;
+  if (_imageFile != null) {
+    imageFile = File(_imageFile!.path);
   }
 
+  if (_selectedRole == UserRole.user) {
+    // استخدم الدالة الجديدة التي تستقبل File
+    await authCubit.signUpUserWithImage(
+      email: emailController.text.trim(),
+      password: passwordController.text.trim(),
+      fullName: nameController.text.trim(),
+      university: universityController.text.trim(),
+      faculty: facultyController.text.trim(),
+      track: trackController.text.trim(),
+      profileImage: imageFile,  // ← تمرير File بدلاً من String
+      context: context,
+    );
+  } else {
+    // استخدم الدالة الجديدة للمشرفين
+    await authCubit.signUpEducatorWithImage(
+      email: emailController.text.trim(),
+      password: passwordController.text.trim(),
+      fullName: nameController.text.trim(),
+      role: _selectedRole,
+      position: positionController.text.trim(),
+      department: departmentController.text.trim(),
+      profileImage: imageFile,  // ← تمرير File بدلاً من String
+      context: context,
+    );
+  }
+}
   @override
   Widget build(BuildContext context) {
     // تحديد نص الدور للعرض

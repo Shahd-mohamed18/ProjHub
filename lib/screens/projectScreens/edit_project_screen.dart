@@ -1,12 +1,13 @@
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:path_provider/path_provider.dart';
 import '../../cubits/project/project_cubit.dart';
 import '../../models/project_model.dart';
+import '../../services/project_api_service.dart';
 
 class EditProjectScreen extends StatefulWidget {
   final Project project;
@@ -25,13 +26,15 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
   late TextEditingController _categoryController;
   late TextEditingController _githubController;
 
-  List<File> _projectImages = [];
+  File? _newCoverPhoto;
+  List<File> _newImages = [];
   List<String> _existingImages = [];
-  File? _selectedDocument;
+  File? _newDocument;
   String _documentName = '';
   bool _isUploading = false;
 
   final ImagePicker _imagePicker = ImagePicker();
+  final ProjectApiService _apiService = ProjectApiService();
 
   @override
   void initState() {
@@ -51,12 +54,11 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
   void _initializeImages() {
     _existingImages = List.from(widget.project.images);
     if (widget.project.documentUrl.isNotEmpty) {
-      _selectedDocument = File(widget.project.documentUrl);
-      _documentName = widget.project.documentUrl.split('/').last;
+      _documentName = 'Current Document';
     }
   }
 
-  Future<void> _pickCoverImage() async {
+  Future<void> _pickNewCoverImage() async {
     try {
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.gallery,
@@ -66,61 +68,46 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
 
       if (image != null) {
         setState(() {
-          if (_existingImages.isNotEmpty) {
-            _existingImages.removeAt(0);
-          }
-          _projectImages.insert(0, File(image.path));
+          _newCoverPhoto = File(image.path);
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking cover image: $e')),
-      );
+      _showSnackBar('Error picking cover image: $e', Colors.red);
     }
   }
 
-  Future<void> _pickProjectImages() async {
+  Future<void> _pickAdditionalImages() async {
     try {
       final List<XFile>? images = await _imagePicker.pickMultiImage(
         imageQuality: 70,
         maxWidth: 1000,
       );
 
-      if (images != null) {
+      if (images != null && images.isNotEmpty) {
         setState(() {
-          _projectImages.addAll(images.map((xfile) => File(xfile.path)));
+          _newImages.addAll(images.map((xfile) => File(xfile.path)));
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking images: $e')),
-      );
+      _showSnackBar('Error picking images: $e', Colors.red);
     }
   }
 
-  Future<void> _pickDocument() async {
+  Future<void> _pickNewDocument() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['pdf', 'doc', 'docx'],
-        allowMultiple: false,
+        allowedExtensions: ['pdf'],
       );
 
       if (result != null) {
-        File originalFile = File(result.files.single.path!);
-        final directory = await getApplicationDocumentsDirectory();
-        final newPath = '${directory.path}/${DateTime.now().millisecondsSinceEpoch}_${result.files.single.name}';
-        File savedFile = await originalFile.copy(newPath);
-
         setState(() {
-          _selectedDocument = savedFile;
+          _newDocument = File(result.files.single.path!);
           _documentName = result.files.single.name;
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking document: $e')),
-      );
+      _showSnackBar('Error picking document: $e', Colors.red);
     }
   }
 
@@ -132,58 +119,81 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
 
   void _removeNewImage(int index) {
     setState(() {
-      _projectImages.removeAt(index);
+      _newImages.removeAt(index);
     });
   }
 
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: color),
+    );
+  }
+
   Future<void> _submitForm() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() => _isUploading = true);
+    if (!_formKey.currentState!.validate()) return;
 
-      try {
-        List<String> allImages = [];
-        
-        // إضافة الصور الموجودة
-        allImages.addAll(_existingImages);
-        
-        // إضافة الصور الجديدة
-        allImages.addAll(_projectImages.map((file) => file.path));
+    setState(() => _isUploading = true);
 
-        List<String> tags = _tagsController.text
-            .split(',')
-            .map((tag) => tag.trim())
-            .where((tag) => tag.isNotEmpty)
-            .toList();
-
-        final updatedProject = widget.project.copyWith(
-          title: _titleController.text,
-          description: _descriptionController.text,
-          images: allImages,
-          tags: tags.isNotEmpty ? tags : ['General'],
-          category: _categoryController.text,
-          documentUrl: _selectedDocument?.path ?? widget.project.documentUrl,
-          githubUrl: _githubController.text.isNotEmpty ? _githubController.text : null,
-        );
-
-        await context.read<ProjectCubit>().updateProject(updatedProject);
-
-        if (mounted) {
-          Navigator.pop(context, true);
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error updating project: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      } finally {
-        if (mounted) {
-          setState(() => _isUploading = false);
-        }
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        throw Exception('User not logged in');
       }
+
+      List<String> finalImageUrls = [];
+      
+      
+      finalImageUrls.addAll(_existingImages);
+      
+      
+    
+      for (File image in _newImages) {
+        
+        finalImageUrls.add(image.path);
+      }
+      
+      
+      String finalDocumentUrl = widget.project.documentUrl;
+      if (_newDocument != null) {
+        
+        finalDocumentUrl = _newDocument!.path;
+      }
+      
+      
+      List<String> tags = _tagsController.text
+          .split(',')
+          .map((tag) => tag.trim())
+          .where((tag) => tag.isNotEmpty)
+          .toList();
+      
+      
+      final updatedProject = Project(
+        id: widget.project.id,
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        authorId: widget.project.authorId,
+        authorName: widget.project.authorName,
+        images: finalImageUrls,
+        tags: tags.isEmpty ? ['General'] : tags,
+        category: _categoryController.text,
+        documentUrl: finalDocumentUrl,
+        githubUrl: _githubController.text.trim().isNotEmpty 
+            ? _githubController.text.trim() 
+            : null,
+        createdAt: widget.project.createdAt,
+      );
+      
+      // 6. التحديث في Firebase
+      await context.read<ProjectCubit>().updateProject(updatedProject);
+      
+      if (mounted) {
+        Navigator.pop(context, true);
+        _showSnackBar('Project updated successfully!', Colors.green);
+      }
+    } catch (e) {
+      _showSnackBar('Error updating project: $e', Colors.red);
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
     }
   }
 
@@ -213,536 +223,357 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
           ),
         ],
       ),
-      body: BlocListener<ProjectCubit, ProjectState>(
-        listener: (context, state) {
-          if (state.status == ProjectStatus.error && state.errorMessage != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.errorMessage!),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Color.fromARGB(255, 222, 233, 247),
-                Colors.white,
-                Color(0xff7E9FCA),
-              ],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFDEE9F7), Colors.white, Color(0xff7E9FCA)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
-          child: _isUploading
-              ? const Center(
+        ),
+        child: _isUploading
+            ? const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Updating project...'),
+                  ],
+                ),
+              )
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Form(
+                  key: _formKey,
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('Updating project...'),
+                      // Cover Photo Section
+                      const Text('Cover Photo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: _pickNewCoverImage,
+                        child: Container(
+                          width: double.infinity,
+                          height: 200,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.grey.shade300),
+                            image: (_existingImages.isNotEmpty || _newCoverPhoto != null)
+                                ? DecorationImage(
+                                    image: _existingImages.isNotEmpty
+                                        ? NetworkImage(_existingImages.first)
+                                        : FileImage(_newCoverPhoto!) as ImageProvider,
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                          ),
+                          child: (_existingImages.isEmpty && _newCoverPhoto == null)
+                              ? Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.cloud_upload, size: 50, color: Colors.grey.shade400),
+                                    const SizedBox(height: 8),
+                                    Text('Tap to change cover image', style: TextStyle(color: Colors.grey.shade600)),
+                                  ],
+                                )
+                              : Stack(
+                                  children: [
+                                    Positioned(
+                                      top: 12,
+                                      left: 12,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.withOpacity(0.8),
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
+                                        child: const Text('Cover', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: 12,
+                                      right: 12,
+                                      child: GestureDetector(
+                                        onTap: _pickNewCoverImage,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                                          child: const Icon(Icons.edit, size: 20, color: Colors.blue),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Existing Images
+                      if (_existingImages.isNotEmpty) ...[
+                        const Text('Existing Images', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: 100,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _existingImages.length,
+                            itemBuilder: (context, index) {
+                              return Stack(
+                                children: [
+                                  Container(
+                                    width: 100,
+                                    height: 100,
+                                    margin: const EdgeInsets.only(right: 8),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      image: DecorationImage(
+                                        image: NetworkImage(_existingImages[index]),
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 4,
+                                    right: 4,
+                                    child: GestureDetector(
+                                      onTap: () => _removeExistingImage(index),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                                        child: const Icon(Icons.close, size: 14, color: Colors.white),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
+                      // New Images
+                      if (_newImages.isNotEmpty) ...[
+                        const Text('New Images', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: 100,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _newImages.length,
+                            itemBuilder: (context, index) {
+                              return Stack(
+                                children: [
+                                  Container(
+                                    width: 100,
+                                    height: 100,
+                                    margin: const EdgeInsets.only(right: 8),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      image: DecorationImage(
+                                        image: FileImage(_newImages[index]),
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 4,
+                                    right: 4,
+                                    child: GestureDetector(
+                                      onTap: () => _removeNewImage(index),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                                        child: const Icon(Icons.close, size: 14, color: Colors.white),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
+                      // Add Images Button
+                      ElevatedButton.icon(
+                        onPressed: _pickAdditionalImages,
+                        icon: const Icon(Icons.add_photo_alternate_outlined),
+                        label: const Text('Add More Images'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey.shade200,
+                          foregroundColor: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Title
+                      const Text('Project Title *', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _titleController,
+                        decoration: InputDecoration(
+                          hintText: 'Enter project name',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          fillColor: Colors.white,
+                          filled: true,
+                        ),
+                        validator: (v) => v?.isEmpty ?? true ? 'Please enter title' : null,
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Description
+                      const Text('Description *', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _descriptionController,
+                        maxLines: 4,
+                        decoration: InputDecoration(
+                          hintText: 'Describe your project',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          fillColor: Colors.white,
+                          filled: true,
+                        ),
+                        validator: (v) => v?.isEmpty ?? true ? 'Please enter description' : null,
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Tags
+                      const Text('Tags', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _tagsController,
+                        decoration: InputDecoration(
+                          hintText: 'Flutter, AI, Mobile (comma separated)',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          fillColor: Colors.white,
+                          filled: true,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Category
+                      const Text('Category *', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: _categoryController.text.isEmpty ? null : _categoryController.text,
+                        hint: const Text('Select category'),
+                        items: const [
+                          DropdownMenuItem(value: 'E-Commerce', child: Text('E-Commerce')),
+                          DropdownMenuItem(value: 'Education', child: Text('Education')),
+                          DropdownMenuItem(value: 'Sport', child: Text('Sport')),
+                          DropdownMenuItem(value: 'Tourism', child: Text('Tourism')),
+                          DropdownMenuItem(value: 'Disability', child: Text('Disability')),
+                          DropdownMenuItem(value: 'Agriculture', child: Text('Agriculture')),
+                          DropdownMenuItem(value: 'Medical', child: Text('Medical')),
+                        ],
+                        onChanged: (value) => setState(() => _categoryController.text = value ?? ''),
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          fillColor: Colors.white,
+                          filled: true,
+                        ),
+                        validator: (v) => v == null ? 'Please select category' : null,
+                      ),
+                      const SizedBox(height: 20),
+
+                      // GitHub URL
+                      const Text('GitHub URL (Optional)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _githubController,
+                        decoration: InputDecoration(
+                          hintText: 'https://github.com/...',
+                          prefixIcon: const Icon(Icons.link),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          fillColor: Colors.white,
+                          filled: true,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Document
+                      const Text('Project Document (PDF)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: _pickNewDocument,
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: _newDocument != null ? Colors.green : Colors.grey.shade300),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(_newDocument != null ? Icons.check_circle : Icons.picture_as_pdf,
+                                  color: _newDocument != null ? Colors.green : Colors.red, size: 30),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _newDocument != null ? _documentName : 'Current Document',
+                                      style: const TextStyle(fontWeight: FontWeight.w500),
+                                    ),
+                                    Text(
+                                      _newDocument != null ? 'Tap to change' : 'Tap to upload new PDF',
+                                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (_newDocument == null && widget.project.documentUrl.isNotEmpty)
+                                IconButton(
+                                  icon: const Icon(Icons.open_in_new, color: Colors.grey),
+                                  onPressed: () {
+                                    context.read<ProjectCubit>().openProjectDocument(widget.project.documentUrl);
+                                  },
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.grey),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                              ),
+                              child: const Text('Cancel', style: TextStyle(fontSize: 16, color: Colors.black54)),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _submitForm,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xff155DFC),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                              ),
+                              child: const Text('Save Changes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
-                )
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Cover Photo
-                        const Text(
-                          'Cover Photo',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        GestureDetector(
-                          onTap: _pickCoverImage,
-                          child: Container(
-                            width: double.infinity,
-                            height: 180,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: _existingImages.isNotEmpty || _projectImages.isNotEmpty
-                                    ? Colors.blue
-                                    : Colors.grey.shade300,
-                                width: 2,
-                              ),
-                              image: _existingImages.isNotEmpty
-                                  ? DecorationImage(
-                                      image: FileImage(File(_existingImages.first)),
-                                      fit: BoxFit.cover,
-                                    )
-                                  : (_projectImages.isNotEmpty
-                                      ? DecorationImage(
-                                          image: FileImage(_projectImages.first),
-                                          fit: BoxFit.cover,
-                                        )
-                                      : null),
-                            ),
-                            child: _existingImages.isEmpty && _projectImages.isEmpty
-                                ? Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.cloud_upload,
-                                        size: 50,
-                                        color: Colors.grey.shade400,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        'Tap to change cover image',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          color: Colors.grey.shade600,
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                : Stack(
-                                    children: [
-                                      Positioned(
-                                        top: 12,
-                                        left: 12,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 6,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.blue.withOpacity(0.8),
-                                            borderRadius: BorderRadius.circular(20),
-                                          ),
-                                          child: const Text(
-                                            'Cover',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      Positioned(
-                                        top: 12,
-                                        right: 12,
-                                        child: GestureDetector(
-                                          onTap: _pickCoverImage,
-                                          child: Container(
-                                            padding: const EdgeInsets.all(8),
-                                            decoration: const BoxDecoration(
-                                              color: Colors.white,
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: const Icon(
-                                              Icons.edit,
-                                              size: 20,
-                                              color: Colors.blue,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Project Images
-                        const Text(
-                          'Project Images',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-
-                        // عرض الصور الموجودة
-                        if (_existingImages.isNotEmpty) ...[
-                          const Text(
-                            'Existing Images',
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                          ),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            height: 80,
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: _existingImages.length,
-                              itemBuilder: (context, index) {
-                                return Stack(
-                                  children: [
-                                    Container(
-                                      width: 80,
-                                      height: 80,
-                                      margin: const EdgeInsets.only(right: 8),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: Colors.grey.shade300),
-                                        image: DecorationImage(
-                                          image: FileImage(File(_existingImages[index])),
-                                          fit: BoxFit.cover,
-                                        ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      top: 0,
-                                      right: 8,
-                                      child: GestureDetector(
-                                        onTap: () => _removeExistingImage(index),
-                                        child: Container(
-                                          padding: const EdgeInsets.all(4),
-                                          decoration: const BoxDecoration(
-                                            color: Colors.red,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(
-                                            Icons.close,
-                                            size: 12,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // عرض الصور الجديدة
-                        if (_projectImages.isNotEmpty) ...[
-                          const Text(
-                            'New Images',
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                          ),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            height: 80,
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: _projectImages.length,
-                              itemBuilder: (context, index) {
-                                return Stack(
-                                  children: [
-                                    Container(
-                                      width: 80,
-                                      height: 80,
-                                      margin: const EdgeInsets.only(right: 8),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: Colors.grey.shade300),
-                                        image: DecorationImage(
-                                          image: FileImage(_projectImages[index]),
-                                          fit: BoxFit.cover,
-                                        ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      top: 0,
-                                      right: 8,
-                                      child: GestureDetector(
-                                        onTap: () => _removeNewImage(index),
-                                        child: Container(
-                                          padding: const EdgeInsets.all(4),
-                                          decoration: const BoxDecoration(
-                                            color: Colors.red,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(
-                                            Icons.close,
-                                            size: 12,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-
-                        ElevatedButton.icon(
-                          onPressed: _pickProjectImages,
-                          icon: const Icon(Icons.add_photo_alternate_outlined),
-                          label: const Text('Add More Images'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey.shade200,
-                            foregroundColor: Colors.black,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Project Title
-                        const Text(
-                          'Project Title',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _titleController,
-                          decoration: InputDecoration(
-                            hintText: 'Enter project name',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            filled: true,
-                            fillColor: Colors.white,
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter project title';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Description
-                        const Text(
-                          'Description',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _descriptionController,
-                          maxLines: 4,
-                          decoration: InputDecoration(
-                            hintText: 'Describe your project',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            filled: true,
-                            fillColor: Colors.white,
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter project description';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Tags
-                        const Text(
-                          'Tags',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _tagsController,
-                          decoration: InputDecoration(
-                            hintText: 'eg. AI, REACT, CSS',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            filled: true,
-                            fillColor: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Category
-                        const Text(
-                          'Category',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        DropdownButtonFormField<String>(
-                          value: _categoryController.text.isNotEmpty
-                              ? _categoryController.text
-                              : null,
-                          hint: const Text('Select category'),
-                          items: const [
-                            DropdownMenuItem(value: 'E-Commerce', child: Text('E-Commerce')),
-                            DropdownMenuItem(value: 'Education', child: Text('Education')),
-                            DropdownMenuItem(value: 'Sport', child: Text('Sport')),
-                            DropdownMenuItem(value: 'Tourism', child: Text('Tourism')),
-                            DropdownMenuItem(value: 'Disability', child: Text('Disability')),
-                            DropdownMenuItem(value: 'Agriculture', child: Text('Agriculture')),
-                            DropdownMenuItem(value: 'medical', child: Text('Medical')),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              _categoryController.text = value ?? '';
-                            });
-                          },
-                          decoration: InputDecoration(
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            filled: true,
-                            fillColor: Colors.white,
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please select a category';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 24),
-
-                        // GitHub
-                        const Text(
-                          'GitHub Repository',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _githubController,
-                          decoration: InputDecoration(
-                            hintText: 'Enter GitHub URL',
-                            prefixIcon: const Icon(Icons.link),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            filled: true,
-                            fillColor: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Document
-                        const Text(
-                          'Project Document',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        GestureDetector(
-                          onTap: _pickDocument,
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: _selectedDocument != null
-                                    ? Colors.green
-                                    : Colors.grey.shade300,
-                                width: _selectedDocument != null ? 2 : 1,
-                              ),
-                            ),
-                            child: _selectedDocument != null
-                                ? Row(
-                                    children: [
-                                      const Icon(Icons.description, color: Colors.green, size: 30),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              _documentName,
-                                              style: const TextStyle(fontWeight: FontWeight.w500),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            Text(
-                                              'Tap to change',
-                                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                : Column(
-                                    children: [
-                                      Icon(Icons.cloud_upload, size: 40, color: Colors.grey.shade400),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        'Tap to upload document',
-                                        style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-                                      ),
-                                      Text(
-                                        'PDF, Docx up to 10MB',
-                                        style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                                      ),
-                                    ],
-                                  ),
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-
-                        // Cancel & Save Buttons
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () => Navigator.pop(context),
-                                style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(color: Colors.grey),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                ),
-                                child: const Text(
-                                  'Cancel',
-                                  style: TextStyle(fontSize: 16, color: Colors.black54),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: _submitForm,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xff155DFC),
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                ),
-                                child: const Text(
-                                  'Save Changes',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
-        ),
+              ),
       ),
     );
   }
@@ -757,6 +588,3 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
     super.dispose();
   }
 }
-
-
-
