@@ -5,11 +5,14 @@ import 'package:file_picker/file_picker.dart';
 import 'package:onboard/cubits/supervisor/supervisor_task_cubit.dart';
 import 'package:onboard/models/TeamModels/team_member.dart';
 import 'package:onboard/widgets/supervisor/task_type_selector.dart';
-import 'package:onboard/widgets/supervisor/assign_to_section.dart'; // ✅ بنستخدم الويدجت
+import 'package:onboard/widgets/supervisor/assign_to_section.dart';
 import 'package:onboard/widgets/supervisor/task_title_field.dart';
 import 'package:onboard/widgets/supervisor/description_field.dart';
 import 'package:onboard/widgets/supervisor/due_date_field.dart';
 import 'package:onboard/widgets/supervisor/attachment_section.dart';
+import 'package:onboard/screens/supervisorScreens/all_tasks_screen.dart';
+import 'package:onboard/repositories/api_task_repository.dart';
+import 'package:onboard/cubits/teams/teams_cubit.dart';
 
 class CreateTaskScreen extends StatefulWidget {
   final String supervisorId;
@@ -125,39 +128,46 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<SupervisorTaskCubit, SupervisorTaskState>(
-      listener: (context, state) {
-        if (state is SupervisorTaskSuccess) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Task created successfully!')));
-              Navigator.pushReplacementNamed(context, '/all_tasks');
-          Navigator.pop(context);
-        } else if (state is SupervisorTaskError) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(state.message)));
-        }
-      },
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFEFF6FF), Color(0xFFF4F4F4), Color(0xFF7D9FCA)],
-            ),
-          ),
-          child: Column(
-            children: [
-              _buildAppBar(),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  child: _isTask ? _buildTaskForm() : _buildPostForm(),
-                ),
+    return BlocProvider(
+      create: (_) => SupervisorTaskCubit(
+        ApiTaskRepository(),
+        context.read<TeamsCubit>(),
+      ),
+      child: BlocListener<SupervisorTaskCubit, SupervisorTaskState>(
+        listener: (context, state) {
+          if (state is SupervisorTaskSuccess) {
+            ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Task created successfully!')));
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const AllTasksScreen()),
+            );
+          } else if (state is SupervisorTaskError) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text(state.message)));
+          }
+        },
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFFEFF6FF), Color(0xFFF4F4F4), Color(0xFF7D9FCA)],
               ),
-            ],
+            ),
+            child: Column(
+              children: [
+                _buildAppBar(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    child: _isTask ? _buildTaskForm() : _buildPostForm(),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -200,7 +210,6 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         TaskTypeSelector(
             isTask: _isTask, onChanged: (v) => setState(() => _isTask = v)),
         const SizedBox(height: 24),
-        // ✅ بنستخدم AssignToSection widget مع TeamMember الجديد
         AssignToSection(
           assignToAll: _assignToAll,
           onAssignToAllChanged: (v) => setState(() => _assignToAll = v),

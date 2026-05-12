@@ -1,14 +1,17 @@
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:onboard/cubits/auth/auth_cubit.dart';
+import 'package:onboard/cubits/supervisor/supervisor_task_cubit.dart';
+import 'package:onboard/cubits/teams/teams_cubit.dart';
+import 'package:onboard/cubits/teams/teams_state.dart';
 import 'package:onboard/models/TeamModels/team_model.dart';
 import 'package:onboard/models/TeamModels/team_member.dart';
 import 'package:onboard/models/user_model.dart';
+import 'package:onboard/repositories/mock_task_repository.dart';
 import 'package:onboard/screens/chatScreens/chat_screen.dart';
-import 'package:onboard/cubits/teams/teams_cubit.dart';
-import 'package:onboard/cubits/teams/teams_state.dart';
 import 'package:onboard/screens/supervisorScreens/add_members_screen.dart';
+import 'package:onboard/screens/supervisorScreens/create_task_screen.dart';
 import 'package:onboard/services/team_api_service.dart';
 
 class TeamDetailsScreen extends StatefulWidget {
@@ -33,47 +36,56 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
   void initState() {
     super.initState();
     _team = widget.team;
-    // ✅ دائماً نجلب أحدث البيانات عند فتح الصفحة
     _fetchTeamDetails();
   }
 
-  // ✅ دالة جديدة لجلب البيانات دائماً
   Future<void> _fetchTeamDetails() async {
-    setState(() {
-      _isLoading = true;
-    });
-
+    setState(() => _isLoading = true);
     try {
       final teamApiService = TeamApiService();
       final teamDetails = await teamApiService.getTeamDetails(_team.id);
-
       if (teamDetails != null && mounted) {
-        print('✅ Team details fetched successfully!');
-        print('   Assistants: ${teamDetails.assistants.length}');
-        print('   Members: ${teamDetails.members.length}');
-
         setState(() {
           _team = teamDetails;
           _isLoading = false;
         });
       } else {
-        print('⚠️ No team details received from backend');
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
       }
     } catch (e) {
       print('⚠️ Error fetching team details: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
-  // ✅ دالة لتحديث البيانات بعد إضافة أعضاء
-  Future<void> _refreshTeamDetails() async {
-    await _fetchTeamDetails();
+  Future<void> _refreshTeamDetails() => _fetchTeamDetails();
+
+  // ── Add Task navigation ──────────────────────────────────────
+
+  void _navigateToCreateTask(BuildContext context) {
+    final authState = context.read<AuthCubit>().state;
+    final supervisorId = authState.userModel?.uid ?? '';
+    final teamsCubit = context.read<TeamsCubit>();
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BlocProvider(
+          create: (_) => SupervisorTaskCubit(
+            MockTaskRepository(), // swap for ApiTaskRepository() when ready
+            teamsCubit,
+          ),
+          child: CreateTaskScreen(
+            supervisorId: supervisorId,
+            teamId: _team.id,
+            teamMembers: _team.members,
+          ),
+        ),
+      ),
+    );
   }
+
+  // ────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -82,26 +94,22 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
     final canAddTask = isSupervisor || isAssistant;
 
     return BlocListener<TeamsCubit, TeamsState>(
-      listenWhen: (previous, current) {
-        return previous != current;
-      },
+      listenWhen: (previous, current) => previous != current,
       listener: (context, state) {
         if (state is TeamsLoaded) {
-          final teamStillExists = state.teams.any(
-            (team) => team.id == _team.id,
-          );
-
-          if (!teamStillExists && mounted) {
-            print('✅ Team deleted, navigating back');
-            Navigator.pop(context);
-          }
+          final stillExists = state.teams.any((t) => t.id == _team.id);
+          if (!stillExists && mounted) Navigator.pop(context);
         }
       },
       child: _buildScaffold(isSupervisor, isAssistant, canAddTask),
     );
   }
 
-  Widget _buildScaffold(bool isSupervisor, bool isAssistant, bool canAddTask) {
+  Widget _buildScaffold(
+    bool isSupervisor,
+    bool isAssistant,
+    bool canAddTask,
+  ) {
     if (_isLoading) {
       return Scaffold(
         body: Container(
@@ -133,27 +141,25 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
             Positioned(
               left: 0,
               top: 0,
-              child: Container(
+              child: SizedBox(
                 width: 393,
                 height: 914,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.center,
-                  spacing: 48,
                   children: [
-                    // App Bar
+                    // ── App Bar ──────────────────────────────
                     Container(
                       width: double.infinity,
                       height: 95,
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         color: Colors.white,
-                        boxShadow: const [
+                        boxShadow: [
                           BoxShadow(
                             color: Color(0x3F000000),
                             blurRadius: 4,
                             offset: Offset(0, 1),
-                            spreadRadius: 0,
                           ),
                         ],
                       ),
@@ -162,27 +168,24 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
                           Positioned(
                             left: 16,
                             top: 48,
-                            child: Container(
+                            child: SizedBox(
                               width: 270,
                               height: 24,
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                spacing: 16,
                                 children: [
                                   GestureDetector(
                                     onTap: () => Navigator.pop(context),
-                                    child: Container(
+                                    child: const SizedBox(
                                       width: 32,
                                       height: 32,
-                                      child: const Icon(
+                                      child: Icon(
                                         Icons.arrow_back_ios_new,
                                         size: 20,
-                                        color: Colors.black,
                                       ),
                                     ),
                                   ),
+                                  const SizedBox(width: 16),
                                   Text(
                                     _team.name,
                                     style: const TextStyle(
@@ -200,479 +203,72 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
                       ),
                     ),
 
-                    // Main Content
-                    Container(
-                      width: 341,
-                      height: 667,
+                    // ── Main Content ─────────────────────────
+                    Expanded(
                       child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 26),
                         child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.start,
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          spacing: 22,
                           children: [
+                            const SizedBox(height: 24),
+
                             // Project Info Card
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              spacing: 33,
-                              children: [
-                                Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  spacing: 32,
-                                  children: [
-                                    // Project Details Card
-                                    Container(
-                                      width: double.infinity,
-                                      decoration: ShapeDecoration(
-                                        color: Colors.white,
-                                        shape: RoundedRectangleBorder(
-                                          side: const BorderSide(
-                                            width: 1.27,
-                                            color: Color(0xFFF2F4F6),
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            14,
-                                          ),
-                                        ),
-                                        shadows: const [
-                                          BoxShadow(
-                                            color: Color(0x19000000),
-                                            blurRadius: 2,
-                                            offset: Offset(0, 1),
-                                            spreadRadius: -1,
-                                          ),
-                                          BoxShadow(
-                                            color: Color(0x19000000),
-                                            blurRadius: 3,
-                                            offset: Offset(0, 1),
-                                            spreadRadius: 0,
-                                          ),
-                                        ],
-                                      ),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(10),
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.start,
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Container(
-                                                  width: 47.99,
-                                                  height: 47.99,
-                                                  decoration: ShapeDecoration(
-                                                    color: const Color(
-                                                      0xFFDBEAFE,
-                                                    ),
-                                                    shape: RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            42600300,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                  child: const Center(
-                                                    child: Text(
-                                                      '👥',
-                                                      style: TextStyle(
-                                                        color: Color(
-                                                          0xFF0A0A0A,
-                                                        ),
-                                                        fontSize: 24,
-                                                        fontFamily: 'Arimo',
-                                                        fontWeight:
-                                                            FontWeight.w400,
-                                                        height: 1.33,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Text(
-                                                        _team.projectName ??
-                                                            'No Project',
-                                                        style: const TextStyle(
-                                                          color: Color(
-                                                            0xFF101727,
-                                                          ),
-                                                          fontSize: 16,
-                                                          fontFamily: 'Arimo',
-                                                          fontWeight:
-                                                              FontWeight.w400,
-                                                          height: 1.50,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 4),
-                                                      Text(
-                                                        '${_team.totalMembers} Members',
-                                                        style: const TextStyle(
-                                                          color: Color(
-                                                            0xFF495565,
-                                                          ),
-                                                          fontSize: 14,
-                                                          fontFamily: 'Arimo',
-                                                          fontWeight:
-                                                              FontWeight.w400,
-                                                          height: 1.43,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 10),
-                                            Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    _team.description ??
-                                                        'No description',
-                                                    style: const TextStyle(
-                                                      color: Color(0xFF495565),
-                                                      fontSize: 14,
-                                                      fontFamily: 'Arimo',
-                                                      fontWeight:
-                                                          FontWeight.w400,
-                                                      height: 1.43,
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 10),
-                                                const SizedBox(
-                                                  width: 82,
-                                                  child: Text(
-                                                    'Add \nNotes',
-                                                    textAlign: TextAlign.center,
-                                                    style: TextStyle(
-                                                      color: Color(0xFF155CFB),
-                                                      fontSize: 18,
-                                                      fontFamily: 'Arimo',
-                                                      fontWeight:
-                                                          FontWeight.w400,
-                                                      height: 1.11,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
+                            _buildProjectCard(),
 
-                                    // Total Tasks Card
-                                    Container(
-                                      width: double.infinity,
-                                      height: 78,
-                                      padding: const EdgeInsets.only(
-                                        top: 13.25,
-                                        left: 13.25,
-                                        right: 13.25,
-                                        bottom: 1.27,
-                                      ),
-                                      decoration: ShapeDecoration(
-                                        color: Colors.white,
-                                        shape: RoundedRectangleBorder(
-                                          side: const BorderSide(
-                                            width: 1.27,
-                                            color: Color(0xFFF2F4F6),
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            14,
-                                          ),
-                                        ),
-                                        shadows: const [
-                                          BoxShadow(
-                                            color: Color(0x19000000),
-                                            blurRadius: 2,
-                                            offset: Offset(0, 1),
-                                            spreadRadius: -1,
-                                          ),
-                                          BoxShadow(
-                                            color: Color(0x19000000),
-                                            blurRadius: 3,
-                                            offset: Offset(0, 1),
-                                            spreadRadius: 0,
-                                          ),
-                                        ],
-                                      ),
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            '${_team.activeProjects * 3}',
-                                            textAlign: TextAlign.center,
-                                            style: const TextStyle(
-                                              color: Color(0xFF155CFB),
-                                              fontSize: 24,
-                                              fontFamily: 'Arimo',
-                                              fontWeight: FontWeight.w400,
-                                              height: 1.33,
-                                            ),
-                                          ),
-                                          const Text(
-                                            'Total Tasks',
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              color: Color(0xFF495565),
-                                              fontSize: 12,
-                                              fontFamily: 'Arimo',
-                                              fontWeight: FontWeight.w400,
-                                              height: 1.33,
-                                            ),
-                                          ),
-                                        ],
+                            const SizedBox(height: 16),
+
+                            // Total Tasks Card
+                            _buildTotalTasksCard(),
+
+                            const SizedBox(height: 22),
+
+                            // Team Members Header
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Team Members',
+                                  style: TextStyle(
+                                    color: Color(0xFF101727),
+                                    fontSize: 16,
+                                    fontFamily: 'Arimo',
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.50,
+                                  ),
+                                ),
+                                // ✅ Fixed: navigates to CreateTaskScreen
+                                if (canAddTask)
+                                  GestureDetector(
+                                    onTap: () =>
+                                        _navigateToCreateTask(context),
+                                    child: const Text(
+                                      '+ Add Task',
+                                      style: TextStyle(
+                                        color: Color(0xFF155CFB),
+                                        fontSize: 18,
+                                        fontFamily: 'Arimo',
+                                        fontWeight: FontWeight.w400,
                                       ),
                                     ),
-                                  ],
-                                ),
+                                  ),
                               ],
                             ),
 
-                            // Team Members Section
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              spacing: 24,
-                              children: [
-                                // Header
-                                Container(
-                                  width: double.infinity,
-                                  height: 24,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const Text(
-                                        'Team Members',
-                                        style: TextStyle(
-                                          color: Color(0xFF101727),
-                                          fontSize: 16,
-                                          fontFamily: 'Arimo',
-                                          fontWeight: FontWeight.w400,
-                                          height: 1.50,
-                                        ),
-                                      ),
-                                      if (canAddTask)
-                                        GestureDetector(
-                                          onTap: () {
-                                            print('Add Task clicked');
-                                          },
-                                          child: const Text(
-                                            '+ Add Task',
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              color: Color(0xFF155CFB),
-                                              fontSize: 18,
-                                              fontFamily: 'Arimo',
-                                              fontWeight: FontWeight.w400,
-                                              height: 1.11,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
+                            const SizedBox(height: 16),
 
-                                // Members List Container
-                                Container(
-                                  margin: EdgeInsets.only(bottom: 20),
-                                  width: double.infinity,
-                                  decoration: ShapeDecoration(
-                                    color: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      side: const BorderSide(
-                                        width: 1.27,
-                                        color: Color(0xFFF2F4F6),
-                                      ),
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    shadows: const [
-                                      BoxShadow(
-                                        color: Color(0x19000000),
-                                        blurRadius: 2,
-                                        offset: Offset(0, 1),
-                                        spreadRadius: -1,
-                                      ),
-                                      BoxShadow(
-                                        color: Color(0x19000000),
-                                        blurRadius: 3,
-                                        offset: Offset(0, 1),
-                                        spreadRadius: 0,
-                                      ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      // ✅ Assistants Section (المعيدين)
-                                      if (_team.assistants.isNotEmpty)
-                                        ..._team.assistants.map(
-                                          (assistant) => _buildAssistantTile(
-                                            context,
-                                            assistant,
-                                          ),
-                                        )
-                                      else
-                                        Padding(
-                                          padding: const EdgeInsets.all(16),
-                                          child: Text(
-                                            'No assistants assigned yet',
-                                            style: TextStyle(
-                                              color: Colors.grey.shade600,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ),
+                            // Members List
+                            _buildMembersList(),
 
-                                      // ✅ Students Section (الطلاب)
-                                      if (_getStudentsOnly().isNotEmpty)
-                                        ..._getStudentsOnly().map(
-                                          (student) => _buildStudentTile(
-                                            context,
-                                            student,
-                                          ),
-                                        )
-                                      else
-                                        Padding(
-                                          padding: const EdgeInsets.all(16),
-                                          child: Text(
-                                            'No students assigned yet',
-                                            style: TextStyle(
-                                              color: Colors.grey.shade600,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
+                            const SizedBox(height: 22),
 
-                                // Action Buttons
-                                if (isSupervisor)
-                                  Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    mainAxisAlignment: MainAxisAlignment.start,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    spacing: 12,
-                                    children: [
-                                      GestureDetector(
-                                        onTap: () async {
-                                          final result = await Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  AddMembersScreen(team: _team),
-                                            ),
-                                          );
-
-                                          if (result == true && mounted) {
-                                            // ✅ تحديث البيانات بعد إضافة الأعضاء
-                                            await _refreshTeamDetails();
-
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Team members updated successfully',
-                                                ),
-                                                backgroundColor: Colors.green,
-                                                behavior:
-                                                    SnackBarBehavior.floating,
-                                                duration: Duration(seconds: 2),
-                                              ),
-                                            );
-                                          }
-                                        },
-                                        child: Container(
-                                          width: double.infinity,
-                                          height: 48,
-                                          decoration: ShapeDecoration(
-                                            color: const Color(0xFF155DFC),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                            ),
-                                          ),
-                                          child: const Center(
-                                            child: Text(
-                                              'Add Members',
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 16,
-                                                fontFamily: 'Arimo',
-                                                fontWeight: FontWeight.w400,
-                                                height: 1.50,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-
-                                      GestureDetector(
-                                        onTap: () {
-                                          _showDeleteDialog(context);
-                                        },
-                                        child: Container(
-                                          width: double.infinity,
-                                          height: 50.51,
-                                          decoration: ShapeDecoration(
-                                            color: Colors.white,
-                                            shape: RoundedRectangleBorder(
-                                              side: const BorderSide(
-                                                width: 1.27,
-                                                color: Color(0xFFFFA1A2),
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                            ),
-                                          ),
-                                          child: const Center(
-                                            child: Text(
-                                              'Remove Team',
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                color: Color(0xFFE7000A),
-                                                fontSize: 16,
-                                                fontFamily: 'Arimo',
-                                                fontWeight: FontWeight.w400,
-                                                height: 1.50,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 20),
-                                    ],
-                                  ),
-                              ],
-                            ),
+                            // Action Buttons (supervisor only)
+                            if (isSupervisor) ...[
+                              _buildAddMembersButton(),
+                              const SizedBox(height: 12),
+                              _buildRemoveTeamButton(),
+                              const SizedBox(height: 30),
+                            ],
                           ],
                         ),
                       ),
@@ -687,197 +283,396 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
     );
   }
 
-  // ✅ دالة لجلب الطلاب فقط (استبعاد المعيدين)
-  // List<TeamMember> _getStudentsOnly() {
-  //   return _team.members.where((member) {
-  //     // استبعاد المعيدين (اللي عندهم position)
-  //     if (member.position != null && member.position!.isNotEmpty) return false;
-  //     return true;
-  //   }).toList();
-  // }
-  // ✅ دالة لجلب الطلاب فقط (استبعاد المعيدين والمشرف)
+  // ── Cards ────────────────────────────────────────────────────
+
+  Widget _buildProjectCard() {
+    return Container(
+      width: double.infinity,
+      decoration: ShapeDecoration(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          side: const BorderSide(width: 1.27, color: Color(0xFFF2F4F6)),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        shadows: const [
+          BoxShadow(
+              color: Color(0x19000000),
+              blurRadius: 2,
+              offset: Offset(0, 1),
+              spreadRadius: -1),
+          BoxShadow(
+              color: Color(0x19000000),
+              blurRadius: 3,
+              offset: Offset(0, 1)),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: ShapeDecoration(
+                    color: const Color(0xFFDBEAFE),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(42600300),
+                    ),
+                  ),
+                  child: const Center(
+                    child: Text('👥',
+                        style: TextStyle(fontSize: 24, fontFamily: 'Arimo')),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _team.projectName ?? 'No Project',
+                        style: const TextStyle(
+                            color: Color(0xFF101727),
+                            fontSize: 16,
+                            fontFamily: 'Arimo'),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${_team.totalMembers} Members',
+                        style: const TextStyle(
+                            color: Color(0xFF495565),
+                            fontSize: 14,
+                            fontFamily: 'Arimo'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    _team.description ?? 'No description',
+                    style: const TextStyle(
+                        color: Color(0xFF495565),
+                        fontSize: 14,
+                        fontFamily: 'Arimo',
+                        height: 1.43),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'Add \nNotes',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: Color(0xFF155CFB),
+                      fontSize: 18,
+                      fontFamily: 'Arimo'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTotalTasksCard() {
+    return Container(
+      width: double.infinity,
+      height: 78,
+      decoration: ShapeDecoration(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          side: const BorderSide(width: 1.27, color: Color(0xFFF2F4F6)),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        shadows: const [
+          BoxShadow(
+              color: Color(0x19000000),
+              blurRadius: 2,
+              offset: Offset(0, 1),
+              spreadRadius: -1),
+          BoxShadow(
+              color: Color(0x19000000), blurRadius: 3, offset: Offset(0, 1)),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            '${_team.activeProjects * 3}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                color: Color(0xFF155CFB),
+                fontSize: 24,
+                fontFamily: 'Arimo'),
+          ),
+          const Text(
+            'Total Tasks',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: Color(0xFF495565),
+                fontSize: 12,
+                fontFamily: 'Arimo'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMembersList() {
+    return Container(
+      width: double.infinity,
+      decoration: ShapeDecoration(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          side: const BorderSide(width: 1.27, color: Color(0xFFF2F4F6)),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        shadows: const [
+          BoxShadow(
+              color: Color(0x19000000),
+              blurRadius: 2,
+              offset: Offset(0, 1),
+              spreadRadius: -1),
+          BoxShadow(
+              color: Color(0x19000000), blurRadius: 3, offset: Offset(0, 1)),
+        ],
+      ),
+      child: Column(
+        children: [
+          if (_team.assistants.isNotEmpty)
+            ..._team.assistants.map(
+              (a) => _buildAssistantTile(context, a),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('No assistants assigned yet',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+            ),
+          if (_getStudentsOnly().isNotEmpty)
+            ..._getStudentsOnly().map(
+              (s) => _buildStudentTile(context, s),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('No students assigned yet',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddMembersButton() {
+    return GestureDetector(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AddMembersScreen(team: _team),
+          ),
+        );
+        if (result == true && mounted) {
+          await _refreshTeamDetails();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Team members updated successfully'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      },
+      child: Container(
+        width: double.infinity,
+        height: 48,
+        decoration: ShapeDecoration(
+          color: const Color(0xFF155DFC),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10)),
+        ),
+        child: const Center(
+          child: Text('Add Members',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontFamily: 'Arimo')),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRemoveTeamButton() {
+    return GestureDetector(
+      onTap: () => _showDeleteDialog(context),
+      child: Container(
+        width: double.infinity,
+        height: 50,
+        decoration: ShapeDecoration(
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            side: const BorderSide(width: 1.27, color: Color(0xFFFFA1A2)),
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        child: const Center(
+          child: Text('Remove Team',
+              style: TextStyle(
+                  color: Color(0xFFE7000A),
+                  fontSize: 16,
+                  fontFamily: 'Arimo')),
+        ),
+      ),
+    );
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────
+
   List<TeamMember> _getStudentsOnly() {
-    return _team.members.where((member) {
-      // استبعاد المشرف (الدكتور)
-      if (member.id == _team.supervisorId) return false;
-      // استبعاد المعيدين (اللي عندهم position)
-      if (member.position != null && member.position!.isNotEmpty) return false;
+    return _team.members.where((m) {
+      if (m.id == _team.supervisorId) return false;
+      if (m.position != null && m.position!.isNotEmpty) return false;
       return true;
     }).toList();
   }
 
   Widget _buildAssistantTile(BuildContext context, TeamMember assistant) {
-    String subtitle = assistant.position ?? 'Assistant';
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: const BoxDecoration(
         color: Color(0xFFFEF9C2),
         border: Border(
-          bottom: BorderSide(width: 1.27, color: Color(0xFFF2F4F6)),
-        ),
+            bottom: BorderSide(width: 1.27, color: Color(0xFFF2F4F6))),
       ),
       child: Row(
         children: [
-          _buildMemberAvatar(assistant, isAssistant: true),
+          _buildAvatar(assistant, isAssistant: true),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  assistant.name,
-                  style: const TextStyle(
-                    color: Color(0xFF101727),
-                    fontSize: 14,
-                    fontFamily: 'Arimo',
-                    fontWeight: FontWeight.w400,
-                    height: 1.43,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: Color(0xFF697282),
-                    fontSize: 12,
-                    fontFamily: 'Arimo',
-                    fontWeight: FontWeight.w400,
-                    height: 1.33,
-                  ),
-                ),
+                Text(assistant.name,
+                    style: const TextStyle(
+                        color: Color(0xFF101727),
+                        fontSize: 14,
+                        fontFamily: 'Arimo')),
+                Text(assistant.position ?? 'Assistant',
+                    style: const TextStyle(
+                        color: Color(0xFF697282),
+                        fontSize: 12,
+                        fontFamily: 'Arimo')),
               ],
             ),
           ),
           GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ChatScreen(
-                    otherUserId: assistant.id,
-                    otherUserName: assistant.name,
-                    otherUserPhoto: assistant.photoUrl,
-                  ),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ChatScreen(
+                  otherUserId: assistant.id,
+                  otherUserName: assistant.name,
+                  otherUserPhoto: assistant.photoUrl,
                 ),
-              );
-            },
-            child: const Text(
-              'Message',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFF155CFB),
-                fontSize: 14,
-                fontFamily: 'Arimo',
-                fontWeight: FontWeight.w400,
-                height: 1.43,
               ),
             ),
+            child: const Text('Message',
+                style: TextStyle(
+                    color: Color(0xFF155CFB),
+                    fontSize: 14,
+                    fontFamily: 'Arimo')),
           ),
         ],
       ),
     );
   }
 
-  // ✅ دالة عرض الطلاب مع الـ Track الخاص بهم
   Widget _buildStudentTile(BuildContext context, TeamMember student) {
-    String track = student.role ?? 'Student';
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         border: Border(
-          bottom: BorderSide(width: 1.27, color: const Color(0xFFF2F4F6)),
-        ),
+            bottom: BorderSide(width: 1.27, color: Color(0xFFF2F4F6))),
       ),
       child: Row(
         children: [
-          _buildMemberAvatar(student),
+          _buildAvatar(student),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  student.name,
-                  style: const TextStyle(
-                    color: Color(0xFF101727),
-                    fontSize: 14,
-                    fontFamily: 'Arimo',
-                    fontWeight: FontWeight.w400,
-                    height: 1.43,
-                  ),
-                ),
-                Text(
-                  track,
-                  style: const TextStyle(
-                    color: Color(0xFF697282),
-                    fontSize: 12,
-                    fontFamily: 'Arimo',
-                    fontWeight: FontWeight.w400,
-                    height: 1.33,
-                  ),
-                ),
+                Text(student.name,
+                    style: const TextStyle(
+                        color: Color(0xFF101727),
+                        fontSize: 14,
+                        fontFamily: 'Arimo')),
+                Text(student.role ?? 'Student',
+                    style: const TextStyle(
+                        color: Color(0xFF697282),
+                        fontSize: 12,
+                        fontFamily: 'Arimo')),
               ],
             ),
           ),
           GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ChatScreen(
-                    otherUserId: student.id,
-                    otherUserName: student.name,
-                    otherUserPhoto: student.photoUrl,
-                  ),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ChatScreen(
+                  otherUserId: student.id,
+                  otherUserName: student.name,
+                  otherUserPhoto: student.photoUrl,
                 ),
-              );
-            },
-            child: const Text(
-              'Message',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFF155CFB),
-                fontSize: 14,
-                fontFamily: 'Arimo',
-                fontWeight: FontWeight.w400,
-                height: 1.43,
               ),
             ),
+            child: const Text('Message',
+                style: TextStyle(
+                    color: Color(0xFF155CFB),
+                    fontSize: 14,
+                    fontFamily: 'Arimo')),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildMemberAvatar(TeamMember member, {bool isAssistant = false}) {
+  Widget _buildAvatar(TeamMember member, {bool isAssistant = false}) {
     final photoUrl = member.photoUrl;
-
     return Stack(
       children: [
         Container(
-          width: 39.99,
-          height: 39.99,
-          decoration: ShapeDecoration(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
             color: photoUrl == null || photoUrl.isEmpty
                 ? (isAssistant
-                      ? Colors.purple.withOpacity(0.1)
-                      : Colors.blue.withOpacity(0.1))
+                    ? Colors.purple.withOpacity(0.1)
+                    : Colors.blue.withOpacity(0.1))
                 : Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(42600300),
-            ),
+            shape: BoxShape.circle,
           ),
-          child: _buildAvatarContent(member, photoUrl, isAssistant),
+          child: _avatarContent(member, photoUrl, isAssistant),
         ),
         Positioned(
           right: 0,
           bottom: 0,
           child: Container(
-            width: 11.98,
-            height: 11.98,
+            width: 12,
+            height: 12,
             decoration: ShapeDecoration(
               color: const Color(0xFF00C950),
               shape: RoundedRectangleBorder(
@@ -891,11 +686,8 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
     );
   }
 
-  Widget _buildAvatarContent(
-    TeamMember member,
-    String? photoUrl,
-    bool isAssistant,
-  ) {
+  Widget _avatarContent(
+      TeamMember member, String? photoUrl, bool isAssistant) {
     if (photoUrl == null || photoUrl.isEmpty) {
       return Center(
         child: Text(
@@ -908,48 +700,37 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
         ),
       );
     }
-
     if (photoUrl.startsWith('http')) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(42600300),
-        child: Image.network(
-          photoUrl,
-          width: 39.99,
-          height: 39.99,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) =>
-              _buildFallbackAvatar(member, isAssistant),
-        ),
+      return ClipOval(
+        child: Image.network(photoUrl,
+            width: 40,
+            height: 40,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) =>
+                _fallbackAvatar(member, isAssistant)),
       );
     }
-
     if (photoUrl.startsWith('assets')) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(42600300),
-        child: Image.asset(
-          photoUrl,
-          width: 39.99,
-          height: 39.99,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) =>
-              _buildFallbackAvatar(member, isAssistant),
-        ),
+      return ClipOval(
+        child: Image.asset(photoUrl,
+            width: 40,
+            height: 40,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) =>
+                _fallbackAvatar(member, isAssistant)),
       );
     }
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(42600300),
-      child: Image.file(
-        File(photoUrl),
-        width: 39.99,
-        height: 39.99,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _buildFallbackAvatar(member, isAssistant),
-      ),
+    return ClipOval(
+      child: Image.file(File(photoUrl),
+          width: 40,
+          height: 40,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) =>
+              _fallbackAvatar(member, isAssistant)),
     );
   }
 
-  Widget _buildFallbackAvatar(TeamMember member, bool isAssistant) {
+  Widget _fallbackAvatar(TeamMember member, bool isAssistant) {
     return Center(
       child: Text(
         member.name.isNotEmpty ? member.name[0].toUpperCase() : '?',
@@ -965,72 +746,49 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
   void _showDeleteDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Remove Team'),
-          content: Text('Are you sure you want to remove "${_team.name}"?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(dialogContext);
-
-                final snackBar = ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Row(
-                      children: [
-                        SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        ),
-                        SizedBox(width: 12),
-                        Text('Removing team...'),
-                      ],
-                    ),
-                    backgroundColor: Colors.blue,
-                    duration: Duration(days: 1),
-                  ),
-                );
-
-                final success = await context.read<TeamsCubit>().deleteTeam(
-                  _team.id,
-                );
-
-                if (mounted) {
-                  snackBar.close();
-                }
-
-                if (success && mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Team removed successfully'),
-                      backgroundColor: Colors.green,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                } else if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Failed to remove team'),
-                      backgroundColor: Colors.red,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
-              },
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Remove'),
-            ),
-          ],
-        );
-      },
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Remove Team'),
+        content: Text('Are you sure you want to remove "${_team.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(dialogCtx);
+              final snack =
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Row(children: [
+                  SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white)),
+                  SizedBox(width: 12),
+                  Text('Removing team…'),
+                ]),
+                backgroundColor: Colors.blue,
+                duration: Duration(days: 1),
+              ));
+              final success =
+                  await context.read<TeamsCubit>().deleteTeam(_team.id);
+              if (mounted) snack.close();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(success
+                      ? 'Team removed successfully'
+                      : 'Failed to remove team'),
+                  backgroundColor: success ? Colors.green : Colors.red,
+                  behavior: SnackBarBehavior.floating,
+                ));
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
     );
   }
 }

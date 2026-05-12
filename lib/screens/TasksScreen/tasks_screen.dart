@@ -16,6 +16,8 @@ import 'package:onboard/widgets/tasks/task_card.dart';
 import 'package:onboard/widgets/tasks/my_work/pending_task_card.dart';
 import 'package:onboard/widgets/tasks/my_work/completed_task_card.dart';
 import 'package:onboard/repositories/mock_task_repository.dart';
+import 'package:onboard/repositories/api_task_repository.dart';
+
 import 'package:onboard/widgets/tasks/my_work/team_task_card.dart';
 
 // ✅ TasksScreen ← تاني بتعمل setState
@@ -34,7 +36,7 @@ class _TasksScreenState extends State<TasksScreen> {
   Widget build(BuildContext context) {
     // ✅ BlocProvider بنحطه هنا عشان الـ Cubit يعيش مع الشاشة دي بس
     return BlocProvider(
-      create: (_) => TasksCubit(MockTaskRepository())..loadTasks(),
+      create: (_) => TasksCubit(ApiTaskRepository())..loadTasks(),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Container(

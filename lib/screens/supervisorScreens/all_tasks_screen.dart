@@ -2,20 +2,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/supervisor/supervisor_task_cubit.dart';
+import 'package:onboard/cubits/teams/teams_cubit.dart';
 import 'package:onboard/models/TaskModels/task_model.dart';
 import 'package:onboard/cubits/auth/auth_cubit.dart';
 import 'package:onboard/models/TeamModels/team_model.dart';
 import 'package:onboard/screens/TasksScreen/task_details_screen.dart';
-import 'package:onboard/screens/supervisorScreens/give_feedback_screen.dart'; // ✅ إضافة الـ import الناقص
+import 'package:onboard/screens/supervisorScreens/give_feedback_screen.dart';
+import 'package:onboard/repositories/api_task_repository.dart';
 
-class AllTasksScreen extends StatefulWidget {
+class AllTasksScreen extends StatelessWidget {
   const AllTasksScreen({super.key});
 
   @override
-  State<AllTasksScreen> createState() => _AllTasksScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => SupervisorTaskCubit(
+        ApiTaskRepository(),
+        context.read<TeamsCubit>(),
+      ),
+      child: const _AllTasksScreenContent(),
+    );
+  }
 }
 
-class _AllTasksScreenState extends State<AllTasksScreen> {
+class _AllTasksScreenContent extends StatefulWidget {
+  const _AllTasksScreenContent();
+
+  @override
+  State<_AllTasksScreenContent> createState() => _AllTasksScreenContentState();
+}
+
+class _AllTasksScreenContentState extends State<_AllTasksScreenContent> {
   @override
   void initState() {
     super.initState();
@@ -27,7 +44,6 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
   void _loadData() {
     final authCubit = context.read<AuthCubit>();
     final supervisorId = authCubit.state.userModel?.uid ?? 'supervisor_1';
-    // ✅ مش بنبعت teams - SupervisorTaskCubit بياخدها من TeamsCubit مباشرة
     context.read<SupervisorTaskCubit>().loadSupervisorData(supervisorId);
   }
 

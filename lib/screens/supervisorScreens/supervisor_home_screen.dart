@@ -1,14 +1,15 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/auth/auth_cubit.dart';
 import 'package:onboard/cubits/teams/teams_cubit.dart';
 import 'package:onboard/cubits/teams/teams_state.dart';
+import 'package:onboard/cubits/supervisor/supervisor_task_cubit.dart';
 import 'package:onboard/models/TeamModels/team_model.dart';
 import 'package:onboard/models/user_model.dart';
+import 'package:onboard/repositories/mock_task_repository.dart';
 import 'package:onboard/screens/supervisorScreens/all_members_screen.dart';
+import 'package:onboard/screens/supervisorScreens/all_tasks_screen.dart';
 import 'package:onboard/screens/supervisorScreens/all_teams_screen.dart';
-import 'package:onboard/screens/projectScreens/project_screen.dart';
 import 'package:onboard/screens/supervisorScreens/supervisor_projects_screen.dart';
 import 'package:onboard/screens/supervisorScreens/team_details_screen.dart';
 
@@ -61,7 +62,6 @@ class SupervisorHomeScreen extends StatelessWidget {
       teamsCount = teams.length;
       projectsCount = teams.length;
 
-      // Calculate total members (unique)
       Set<String> memberIds = {};
       for (var team in teams) {
         for (var member in team.members) {
@@ -73,10 +73,7 @@ class SupervisorHomeScreen extends StatelessWidget {
       }
       membersCount = memberIds.length;
 
-      // Tasks count
       tasksCount = teams.fold(0, (sum, team) => sum + (team.activeProjects * 3));
-
-      // Get recent teams (last 3)
       recentTeams = teams.take(3).toList();
     }
 
@@ -95,7 +92,7 @@ class SupervisorHomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // White background for header
+              // Header
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.only(
@@ -154,7 +151,7 @@ class SupervisorHomeScreen extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              // Stats Cards with real data - تم التعديل هنا
+              // Stats Cards
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Row(
@@ -167,9 +164,7 @@ class SupervisorHomeScreen extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => AllTeamsScreen(
-                                userRole: userRole,
-                              ),
+                              builder: (_) => AllTeamsScreen(userRole: userRole),
                             ),
                           );
                         },
@@ -177,7 +172,7 @@ class SupervisorHomeScreen extends StatelessWidget {
                       ),
                     ),
 
-                    const SizedBox(width: 12), // مسافة بين الكروت
+                    const SizedBox(width: 12),
 
                     // Projects Card
                     Expanded(
@@ -186,7 +181,7 @@ class SupervisorHomeScreen extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const SupervisorProjectsScreen(),
+                              builder: (_) => const SupervisorProjectsScreen(),
                             ),
                           );
                         },
@@ -194,9 +189,9 @@ class SupervisorHomeScreen extends StatelessWidget {
                       ),
                     ),
 
-                    const SizedBox(width: 12), // مسافة بين الكروت
+                    const SizedBox(width: 12),
 
-                    // Members Card (للدكتور فقط)
+                    // Members Card (supervisor only)
                     if (isSupervisor) ...[
                       Expanded(
                         child: GestureDetector(
@@ -204,32 +199,43 @@ class SupervisorHomeScreen extends StatelessWidget {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => AllMembersScreen(teams: teams),
+                                builder: (_) => AllMembersScreen(teams: teams),
                               ),
                             );
                           },
                           child: _buildStatCard('Members', membersCount.toString()),
                         ),
                       ),
-                      const SizedBox(width: 12), // مسافة بين الكروت
+                      const SizedBox(width: 12),
                     ],
 
-                    // Tasks Card
-                     Expanded(
+                    // ✅ Tasks Card — fixed: uses MaterialPageRoute instead of pushNamed
+                    Expanded(
                       child: GestureDetector(
-                       onTap: () {
-                       Navigator.pushNamed(context, '/all_tasks');
-                       },
-                       child: _buildStatCard('Tasks', tasksCount.toString()),
-                  ),
-                  ),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => BlocProvider(
+                                create: (_) => SupervisorTaskCubit(
+                                  MockTaskRepository(),
+                                  context.read<TeamsCubit>(),
+                                ),
+                                child: const AllTasksScreen(),
+                              ),
+                            ),
+                          );
+                        },
+                        child: _buildStatCard('Tasks', tasksCount.toString()),
+                      ),
+                    ),
                   ],
                 ),
               ),
 
               const SizedBox(height: 40),
 
-              // Your Teams Section with real data
+              // Your Teams Section
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
@@ -252,9 +258,8 @@ class SupervisorHomeScreen extends StatelessWidget {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => AllTeamsScreen(
-                                  userRole: userRole,
-                                ),
+                                builder: (_) =>
+                                    AllTeamsScreen(userRole: userRole),
                               ),
                             );
                           },
@@ -289,7 +294,7 @@ class SupervisorHomeScreen extends StatelessWidget {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => TeamDetailsScreen(
+                                  builder: (_) => TeamDetailsScreen(
                                     team: team,
                                     userRole: userRole,
                                   ),
@@ -337,7 +342,9 @@ class SupervisorHomeScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            isSupervisor ? 'Create your first team!' : 'You are not assigned to any team yet',
+            isSupervisor
+                ? 'Create your first team!'
+                : 'You are not assigned to any team yet',
             style: const TextStyle(fontSize: 14, color: Colors.grey),
           ),
         ],
@@ -457,7 +464,6 @@ class SupervisorHomeScreen extends StatelessWidget {
             color: Color(0x19000000),
             blurRadius: 3,
             offset: Offset(0, 1),
-            spreadRadius: 0,
           ),
         ],
       ),

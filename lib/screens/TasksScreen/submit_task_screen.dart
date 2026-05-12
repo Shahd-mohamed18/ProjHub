@@ -7,6 +7,8 @@ import 'package:onboard/cubits/tasks/tasks_state.dart';
 import 'package:onboard/models/TaskModels/task_model.dart';
 import 'package:onboard/repositories/task_repository.dart';
 import 'package:onboard/repositories/mock_task_repository.dart';
+import 'package:onboard/repositories/api_task_repository.dart';
+
 
 class SubmitTaskScreen extends StatefulWidget {
   final TaskModel task;
@@ -46,7 +48,7 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
   Widget build(BuildContext context) {
     // ✅ BlocProvider جديد للـ Submit - منفصل عن الـ tasks_screen
     return BlocProvider(
-      create: (_) => TasksCubit(MockTaskRepository()),
+      create: (_) => TasksCubit(ApiTaskRepository()),
       child: BlocConsumer<TasksCubit, TasksState>(
         listener: (context, state) {
           if (state is TaskSubmitted) {

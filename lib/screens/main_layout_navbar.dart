@@ -1,9 +1,8 @@
-
 // lib/main_layout_navbar.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/auth/auth_cubit.dart';
-import 'package:onboard/cubits/teams/teams_cubit.dart'; // تأكدي إن الاستيراد ده موجود
+import 'package:onboard/cubits/teams/teams_cubit.dart';
 import 'package:onboard/models/user_model.dart';
 import 'package:onboard/screens/ProfileScreen/profile_screen.dart';
 import 'package:onboard/screens/chatScreens/chats_screen.dart';
@@ -52,7 +51,6 @@ class _MainLayoutNavbarState extends State<MainLayoutNavbar> {
           },
           child: Scaffold(
             body: Container(
-             
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -81,20 +79,21 @@ class _MainLayoutNavbarState extends State<MainLayoutNavbar> {
       },
     );
   }
-// في دالة _getHomeScreenForUser
-Widget _getHomeScreenForUser(UserModel user) {
-  switch (user.role) {
-    case UserRole.supervisor:
-    case UserRole.assistant:
-      return SupervisorHomeScreen(); // مش محتاج role هنا لأنه هياخدها من الـ AuthCubit
-    case UserRole.user:
-    default:
-      return const HomeScreen();
+
+  Widget _getHomeScreenForUser(UserModel user) {
+    switch (user.role) {
+      case UserRole.supervisor:
+      case UserRole.assistant:
+        return const SupervisorHomeScreen(); // ✅ مع const
+      case UserRole.user:
+      default:
+        return const HomeScreen();
+    }
   }
-}
+
   Widget _buildBottomNavBar() {
     return Container(
-      height: 70,
+      height: 65, // ✅ قللناها شوية
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: const BorderRadius.only(

@@ -10,6 +10,8 @@ import 'package:onboard/screens/supervisorScreens/give_feedback_screen.dart';
 import 'package:onboard/widgets/tasks/task_details/attachment_item.dart';
 import 'package:onboard/widgets/tasks/task_details/comment_section.dart';
 import 'package:onboard/repositories/mock_task_repository.dart';
+import 'package:onboard/repositories/api_task_repository.dart';
+
 
 class TaskDetailsScreen extends StatelessWidget {
   final TaskModel task;
@@ -22,7 +24,7 @@ class TaskDetailsScreen extends StatelessWidget {
     final isSupervisor = role == UserRole.supervisor || role == UserRole.assistant;
 
     return BlocProvider(
-      create: (_) => CommentsCubit(MockTaskRepository()),
+      create: (_) => CommentsCubit(ApiTaskRepository()),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Container(
@@ -208,7 +210,7 @@ class TaskDetailsScreen extends StatelessWidget {
               fileType: f['type']!,
               iconBackgroundColor: accentColor,
               showDownloadButton: true,
-              onDownload: () => debugPrint('Download ${f['name']}'),
+              onDownload: () => print('Download ${f['name']}'),
             ),
           ),
         ),
