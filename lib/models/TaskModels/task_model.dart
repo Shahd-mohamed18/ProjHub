@@ -54,29 +54,53 @@ class TaskModel {
       supervisorId: supervisorId ?? this.supervisorId,
       assignedTo: assignedTo ?? this.assignedTo,
       description: description ?? this.description,
-      supervisorAttachments: supervisorAttachments ?? this.supervisorAttachments,
+      supervisorAttachments:
+          supervisorAttachments ?? this.supervisorAttachments,
       studentAttachments: studentAttachments ?? this.studentAttachments,
       isCompleted: isCompleted ?? this.isCompleted,
     );
   }
 
+  // ✅ FIXED: all fields are null-safe — backend often omits fields
   factory TaskModel.fromJson(Map<String, dynamic> json) {
+    // Parse dueDate safely
+    DateTime parsedDate;
+    try {
+      parsedDate = DateTime.parse(
+          (json['dueDate'] ?? json['due_date'] ?? '').toString());
+    } catch (_) {
+      parsedDate = DateTime.now();
+    }
+
     return TaskModel(
-      id: json['id'],
-      title: json['title'],
-      from: json['from'],
-      dueDate: DateTime.parse(json['dueDate']),
-      teamId: json['teamId'] ?? '',
-      supervisorId: json['supervisorId'] ?? '',
-      assignedTo: List<String>.from(json['assignedTo'] ?? []),
-      description: json['description'],
-      supervisorAttachments: (json['supervisorAttachments'] as List<dynamic>?)
-          ?.map((e) => Map<String, String>.from(e as Map))
-          .toList(),
-      studentAttachments: (json['studentAttachments'] as List<dynamic>?)
-          ?.map((e) => Map<String, String>.from(e as Map))
-          .toList(),
-      isCompleted: json['isCompleted'] ?? false,
+      id: (json['id'] ?? json['taskId'] ?? '').toString(),
+      title: (json['title'] ?? '').toString(),
+      // 'from' is often null from backend — fall back gracefully
+      from: (json['from'] ??
+              json['supervisorName'] ??
+              json['createdByName'] ??
+              'Supervisor')
+          .toString(),
+      dueDate: parsedDate,
+      teamId: (json['teamId'] ?? json['team_id'] ?? '').toString(),
+      supervisorId:
+          (json['supervisorId'] ?? json['createdById'] ?? '').toString(),
+      // assignedTo is often null when task is for all members
+      assignedTo: json['assignedTo'] != null
+          ? List<String>.from(
+              (json['assignedTo'] as List).map((e) => e.toString()))
+          : const [],
+      // description may be null — show nothing, not "no description"
+      description: json['description']?.toString(),
+      supervisorAttachments:
+          (json['supervisorAttachments'] as List<dynamic>?)
+              ?.map((e) => Map<String, String>.from(e as Map))
+              .toList(),
+      studentAttachments:
+          (json['studentAttachments'] as List<dynamic>?)
+              ?.map((e) => Map<String, String>.from(e as Map))
+              .toList(),
+      isCompleted: json['isCompleted'] ?? json['is_completed'] ?? false,
     );
   }
 
@@ -94,7 +118,7 @@ class TaskModel {
         'isCompleted': isCompleted,
       };
 
-  // ✅ Mock tasks - IDs تتطابق مع TeamsCubit members IDs
+  // ✅ Mock tasks
   static final List<TaskModel> _tasks = [
     TaskModel(
       id: 'task_001',
@@ -143,7 +167,6 @@ class TaskModel {
 
   static List<TaskModel> get mockTasks => List.from(_tasks);
 
-  // ✅ submitTask بيحدث الـ task في الـ list
   static void markAsCompleted(String taskId, List<String> filePaths) {
     final index = _tasks.indexWhere((t) => t.id == taskId);
     if (index != -1) {

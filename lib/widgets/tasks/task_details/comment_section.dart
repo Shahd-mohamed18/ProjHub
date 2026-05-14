@@ -1,10 +1,11 @@
 // lib/widgets/tasks/task_details/comment_section.dart
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/comments/comments_cubit.dart';
 import 'package:onboard/cubits/comments/comments_state.dart';
+import 'package:onboard/cubits/auth/auth_cubit.dart';
 import 'package:onboard/models/TaskModels/comment_model.dart';
-import 'package:onboard/repositories/task_repository.dart';
 
 class CommentSection extends StatefulWidget {
   final String taskId;
@@ -34,11 +35,16 @@ class _CommentSectionState extends State<CommentSection> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
+    // ✅ Fix: use real Firebase UID and real user name — not hardcoded strings
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final userName =
+        context.read<AuthCubit>().state.userModel?.fullName ?? 'User';
+
     context.read<CommentsCubit>().addComment(
           taskId: widget.taskId,
           text: text,
-          userId: 'current_user_id',
-          userName: 'Me',
+          userId: uid,
+          userName: userName,
         );
 
     _controller.clear();
@@ -137,12 +143,14 @@ class _CommentSectionState extends State<CommentSection> {
                     const SizedBox(width: 8),
                     Text(
                       comment.formattedTime,
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      style: const TextStyle(
+                          fontSize: 12, color: Colors.grey),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text(comment.text, style: const TextStyle(fontSize: 14)),
+                Text(comment.text,
+                    style: const TextStyle(fontSize: 14)),
               ],
             ),
           ),
@@ -167,7 +175,8 @@ class _CommentSectionState extends State<CommentSection> {
               decoration: const InputDecoration(
                 hintText: 'Add a comment...',
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 16),
               ),
               onSubmitted: (_) => _sendComment(),
             ),
@@ -178,7 +187,8 @@ class _CommentSectionState extends State<CommentSection> {
                 ? const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child:
+                        CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.send, color: Color(0xFF2196F3)),
           ),

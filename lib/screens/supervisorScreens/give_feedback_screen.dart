@@ -1,11 +1,4 @@
-// lib/screens/supervisor/give_feedback_screen.dart
-//
-// Changes vs previous version
-// ─────────────────────────────────────────────────────────────
-// • Submits feedback through SupervisorTaskCubit.giveFeedback()
-//   which calls POST /api/Tasks/{id}/feedback.
-// • BlocListener reacts to SupervisorTaskSuccess / SupervisorTaskError.
-// ─────────────────────────────────────────────────────────────
+// lib/screens/supervisorScreens/give_feedback_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/auth/auth_cubit.dart';
@@ -15,7 +8,6 @@ import 'package:onboard/models/user_model.dart';
 
 class GiveFeedbackScreen extends StatefulWidget {
   final TaskModel task;
-
   const GiveFeedbackScreen({super.key, required this.task});
 
   @override
@@ -23,32 +15,31 @@ class GiveFeedbackScreen extends StatefulWidget {
 }
 
 class _GiveFeedbackScreenState extends State<GiveFeedbackScreen> {
-  final TextEditingController _feedbackController = TextEditingController();
+  final TextEditingController _controller = TextEditingController();
 
   @override
   void dispose() {
-    _feedbackController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
-  String _roleLabel(BuildContext context) {
+  String _senderLabel(BuildContext context) {
     final role = context.read<AuthCubit>().state.userModel?.role;
     return role == UserRole.assistant ? 'Assistant' : 'Supervisor';
   }
 
-  void _submitFeedback(BuildContext context) {
-    final text = _feedbackController.text.trim();
+  void _submit(BuildContext context) {
+    final text = _controller.text.trim();
     if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter feedback')),
       );
       return;
     }
-
     context.read<SupervisorTaskCubit>().giveFeedback(
           taskId: widget.task.id,
           message: text,
-          from: _roleLabel(context),
+          from: _senderLabel(context),
         );
   }
 
@@ -59,7 +50,7 @@ class _GiveFeedbackScreenState extends State<GiveFeedbackScreen> {
         if (state is SupervisorTaskSuccess) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Feedback submitted!'),
+              content: Text('Feedback submitted! ✅'),
               backgroundColor: Colors.green,
             ),
           );
@@ -80,7 +71,11 @@ class _GiveFeedbackScreenState extends State<GiveFeedbackScreen> {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFEFF6FF), Color(0xFFF4F4F4), Color(0xFF7D9FCA)],
+              colors: [
+                Color(0xFFEFF6FF),
+                Color(0xFFF4F4F4),
+                Color(0xFF7D9FCA)
+              ],
             ),
           ),
           child: Column(
@@ -92,10 +87,9 @@ class _GiveFeedbackScreenState extends State<GiveFeedbackScreen> {
                   child: Column(
                     children: [
                       const SizedBox(height: 20),
-                      _buildTaskInfoCard(),
+                      _buildTaskCard(),
                       const SizedBox(height: 16),
                       _buildFeedbackInput(context),
-                      const SizedBox(height: 30),
                     ],
                   ),
                 ),
@@ -112,7 +106,12 @@ class _GiveFeedbackScreenState extends State<GiveFeedbackScreen> {
       height: 95,
       decoration: const BoxDecoration(
         color: Colors.white,
-        boxShadow: [BoxShadow(color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 1))],
+        boxShadow: [
+          BoxShadow(
+              color: Color(0x3F000000),
+              blurRadius: 4,
+              offset: Offset(0, 1))
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.only(left: 16, top: 48),
@@ -130,18 +129,20 @@ class _GiveFeedbackScreenState extends State<GiveFeedbackScreen> {
     );
   }
 
-  Widget _buildTaskInfoCard() {
+  Widget _buildTaskCard() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(widget.task.title,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              style: const TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
-          Text('From: ${widget.task.from}',
+          Text('Submitted by: ${widget.task.from}',
               style: const TextStyle(fontSize: 13, color: Colors.grey)),
         ],
       ),
@@ -158,23 +159,30 @@ class _GiveFeedbackScreenState extends State<GiveFeedbackScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
-            boxShadow: const [BoxShadow(color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 4))],
+            boxShadow: const [
+              BoxShadow(
+                  color: Color(0x3F000000),
+                  blurRadius: 4,
+                  offset: Offset(0, 4))
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('Your Feedback',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  style: TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w600)),
               const SizedBox(height: 12),
               TextField(
-                controller: _feedbackController,
+                controller: _controller,
                 maxLines: 4,
                 enabled: !isLoading,
                 decoration: InputDecoration(
-                  hintText: 'Enter your feedback...',
+                  hintText: 'Enter your feedback…',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Color(0xFFD0D5DB)),
+                    borderSide:
+                        const BorderSide(color: Color(0xFFD0D5DB)),
                   ),
                   filled: true,
                   fillColor: Colors.grey.shade50,
@@ -186,33 +194,46 @@ class _GiveFeedbackScreenState extends State<GiveFeedbackScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: isLoading ? null : () => Navigator.pop(context),
+                      onPressed: isLoading
+                          ? null
+                          : () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFFD0D5DB)),
-                        padding: const EdgeInsets.symmetric(vertical: 15),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        side: const BorderSide(
+                            color: Color(0xFFD0D5DB)),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 15),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                       child: const Text('Cancel',
-                          style: TextStyle(fontSize: 16, color: Color(0xFF354152))),
+                          style: TextStyle(
+                              fontSize: 16,
+                              color: Color(0xFF354152))),
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: isLoading ? null : () => _submitFeedback(context),
+                      onPressed:
+                          isLoading ? null : () => _submit(context),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF155DFC),
-                        padding: const EdgeInsets.symmetric(vertical: 15),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 15),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                       child: isLoading
                           ? const SizedBox(
                               width: 20,
                               height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white))
                           : const Text('Approve & Send',
-                              style: TextStyle(fontSize: 16, color: Colors.white)),
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.white)),
                     ),
                   ),
                 ],

@@ -3,10 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/auth/auth_cubit.dart';
 import 'package:onboard/cubits/teams/teams_cubit.dart';
 import 'package:onboard/cubits/teams/teams_state.dart';
-import 'package:onboard/cubits/supervisor/supervisor_task_cubit.dart';
 import 'package:onboard/models/TeamModels/team_model.dart';
 import 'package:onboard/models/user_model.dart';
-import 'package:onboard/repositories/mock_task_repository.dart';
 import 'package:onboard/screens/supervisorScreens/all_members_screen.dart';
 import 'package:onboard/screens/supervisorScreens/all_tasks_screen.dart';
 import 'package:onboard/screens/supervisorScreens/all_teams_screen.dart';
@@ -35,25 +33,21 @@ class SupervisorHomeScreen extends StatelessWidget {
     final teamsState = context.watch<TeamsCubit>().state;
     final user = authState.userModel;
     final userRole = user?.role ?? UserRole.user;
-    final isAssistant = userRole == UserRole.assistant;
     final isSupervisor = userRole == UserRole.supervisor;
 
     final userName = user?.fullName.split(' ').first ?? 'Mohamed';
     final userPhoto = user?.photoUrl;
     final userId = user?.uid ?? '';
 
-    // Load teams if needed
     if (teamsState is TeamsInitial && userId.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         context.read<TeamsCubit>().loadTeamsForUser(userId, userRole);
       });
     }
 
-    // Calculate real stats
     int teamsCount = 0;
     int membersCount = 0;
     int projectsCount = 0;
-    int tasksCount = 0;
     List<TeamModel> teams = [];
     List<TeamModel> recentTeams = [];
 
@@ -61,19 +55,12 @@ class SupervisorHomeScreen extends StatelessWidget {
       teams = teamsState.teams;
       teamsCount = teams.length;
       projectsCount = teams.length;
-
-      Set<String> memberIds = {};
+      final Set<String> memberIds = {};
       for (var team in teams) {
-        for (var member in team.members) {
-          memberIds.add(member.id);
-        }
-        for (var assistant in team.assistants) {
-          memberIds.add(assistant.id);
-        }
+        for (var m in team.members) memberIds.add(m.id);
+        for (var a in team.assistants) memberIds.add(a.id);
       }
       membersCount = memberIds.length;
-
-      tasksCount = teams.fold(0, (sum, team) => sum + (team.activeProjects * 3));
       recentTeams = teams.take(3).toList();
     }
 
@@ -92,24 +79,18 @@ class SupervisorHomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
+              // ── Header ──────────────────────────────────────────
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.only(
-                  top: 20,
-                  left: 24,
-                  right: 24,
-                  bottom: 24,
-                ),
+                    top: 20, left: 24, right: 24, bottom: 24),
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   boxShadow: [
                     BoxShadow(
-                      color: Color(0x3F000000),
-                      blurRadius: 4,
-                      offset: Offset(0, 4),
-                      spreadRadius: 0,
-                    ),
+                        color: Color(0x3F000000),
+                        blurRadius: 4,
+                        offset: Offset(0, 4))
                   ],
                 ),
                 child: Row(
@@ -121,8 +102,7 @@ class SupervisorHomeScreen extends StatelessWidget {
                           width: 64,
                           height: 64,
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(32),
-                          ),
+                              borderRadius: BorderRadius.circular(32)),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(32),
                             child: _buildProfileImage(userPhoto, userName),
@@ -132,102 +112,70 @@ class SupervisorHomeScreen extends StatelessWidget {
                         Text(
                           _getGreeting(userRole, userName),
                           style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 20,
-                            fontFamily: 'Roboto',
-                            fontWeight: FontWeight.w400,
-                          ),
+                              color: Colors.black,
+                              fontSize: 20,
+                              fontFamily: 'Roboto',
+                              fontWeight: FontWeight.w400),
                         ),
                       ],
                     ),
-                    const Icon(
-                      Icons.notification_add_outlined,
-                      size: 28,
-                      color: Colors.black,
-                    ),
+                    const Icon(Icons.notification_add_outlined,
+                        size: 28, color: Colors.black),
                   ],
                 ),
               ),
 
               const SizedBox(height: 20),
 
-              // Stats Cards
+              // ── Stats Cards ──────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Teams Card
                     Expanded(
                       child: GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => AllTeamsScreen(userRole: userRole),
-                            ),
-                          );
-                        },
-                        child: _buildStatCard('Teams', teamsCount.toString()),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) =>
+                                  AllTeamsScreen(userRole: userRole)),
+                        ),
+                        child:
+                            _buildStatCard('Teams', teamsCount.toString()),
                       ),
                     ),
-
                     const SizedBox(width: 12),
-
-                    // Projects Card
                     Expanded(
                       child: GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const SupervisorProjectsScreen(),
-                            ),
-                          );
-                        },
-                        child: _buildStatCard('Projects', projectsCount.toString()),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) =>
+                                  const SupervisorProjectsScreen()),
+                        ),
+                        child: _buildStatCard(
+                            'Projects', projectsCount.toString()),
                       ),
                     ),
-
                     const SizedBox(width: 12),
-
-                    // Members Card (supervisor only)
                     if (isSupervisor) ...[
                       Expanded(
                         child: GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => AllMembersScreen(teams: teams),
-                              ),
-                            );
-                          },
-                          child: _buildStatCard('Members', membersCount.toString()),
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    AllMembersScreen(teams: teams)),
+                          ),
+                          child: _buildStatCard(
+                              'Members', membersCount.toString()),
                         ),
                       ),
                       const SizedBox(width: 12),
                     ],
-
-                    // ✅ Tasks Card — fixed: uses MaterialPageRoute instead of pushNamed
+                    // ✅ Fix issue 5: real task count via SupervisorTaskCubit
                     Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => BlocProvider(
-                                create: (_) => SupervisorTaskCubit(
-                                  MockTaskRepository(),
-                                  context.read<TeamsCubit>(),
-                                ),
-                                child: const AllTasksScreen(),
-                              ),
-                            ),
-                          );
-                        },
-                        child: _buildStatCard('Tasks', tasksCount.toString()),
-                      ),
+                      child: _buildTasksCard(context, userId),
                     ),
                   ],
                 ),
@@ -235,7 +183,7 @@ class SupervisorHomeScreen extends StatelessWidget {
 
               const SizedBox(height: 40),
 
-              // Your Teams Section
+              // ── Your Teams ───────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
@@ -247,29 +195,24 @@ class SupervisorHomeScreen extends StatelessWidget {
                         Text(
                           'Your Teams ($teamsCount)',
                           style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 16,
-                            fontFamily: 'Roboto',
-                            fontWeight: FontWeight.w600,
-                          ),
+                              color: Colors.black,
+                              fontSize: 16,
+                              fontFamily: 'Roboto',
+                              fontWeight: FontWeight.w600),
                         ),
                         GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
                                 builder: (_) =>
-                                    AllTeamsScreen(userRole: userRole),
-                              ),
-                            );
-                          },
+                                    AllTeamsScreen(userRole: userRole)),
+                          ),
                           child: const Text(
                             'View All',
                             style: TextStyle(
                               color: Color(0xFF155CFB),
                               fontSize: 14,
                               fontFamily: 'Arimo',
-                              fontWeight: FontWeight.w400,
                               decoration: TextDecoration.underline,
                               decorationColor: Color(0xFF3B82F6),
                             ),
@@ -277,10 +220,7 @@ class SupervisorHomeScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 16),
-
-                    // Recent Teams List
                     if (teamsState is TeamsLoading)
                       const Center(child: CircularProgressIndicator())
                     else if (recentTeams.isEmpty)
@@ -290,25 +230,23 @@ class SupervisorHomeScreen extends StatelessWidget {
                         (team) => Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => TeamDetailsScreen(
-                                    team: team,
-                                    userRole: userRole,
-                                  ),
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => TeamDetailsScreen(
+                                  team: team,
+                                  userRole: userRole,
                                 ),
-                              );
-                            },
+                              ),
+                            ),
                             child: _buildTeamCard(
                               teamName: team.name,
-                              projectName: team.projectName ?? 'No Project',
+                              projectName:
+                                  team.projectName ?? 'No Project',
                             ),
                           ),
                         ),
                       ),
-
                     const SizedBox(height: 30),
                   ],
                 ),
@@ -320,26 +258,33 @@ class SupervisorHomeScreen extends StatelessWidget {
     );
   }
 
+  // ── Tasks stat card — navigates to AllTasksScreen which manages its own cubit
+  Widget _buildTasksCard(BuildContext context, String userId) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AllTasksScreen()),
+      ),
+      child: _buildStatCard('Tasks', '→'),
+    );
+  }
+
   Widget _buildEmptyTeams(bool isSupervisor) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-      ),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14)),
       child: Column(
         children: [
           const Icon(Icons.people_outline, size: 48, color: Colors.grey),
           const SizedBox(height: 16),
-          const Text(
-            'No teams yet',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          const Text('No teams yet',
+              style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w500)),
           const SizedBox(height: 8),
           Text(
             isSupervisor
@@ -355,21 +300,16 @@ class SupervisorHomeScreen extends StatelessWidget {
   Widget _buildProfileImage(String? photoUrl, String userName) {
     if (photoUrl != null && photoUrl.isNotEmpty) {
       if (photoUrl.startsWith('http')) {
-        return Image.network(
-          photoUrl,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _buildInitialsImage(userName),
-        );
+        return Image.network(photoUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _buildInitialsImage(userName));
       } else {
-        return Image.file(
-          File(photoUrl),
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _buildInitialsImage(userName),
-        );
+        return Image.file(File(photoUrl),
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _buildInitialsImage(userName));
       }
-    } else {
-      return _buildInitialsImage(userName);
     }
+    return _buildInitialsImage(userName);
   }
 
   Widget _buildInitialsImage(String userName) {
@@ -379,10 +319,9 @@ class SupervisorHomeScreen extends StatelessWidget {
         child: Text(
           userName[0].toUpperCase(),
           style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1E3A8A),
-          ),
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1E3A8A)),
         ),
       ),
     );
@@ -394,14 +333,13 @@ class SupervisorHomeScreen extends StatelessWidget {
       height: 78,
       decoration: ShapeDecoration(
         color: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8)),
         shadows: const [
           BoxShadow(
-            color: Color(0x3F000000),
-            blurRadius: 4,
-            offset: Offset(0, 4),
-            spreadRadius: 0,
-          ),
+              color: Color(0x3F000000),
+              blurRadius: 4,
+              offset: Offset(0, 4))
         ],
       ),
       child: Padding(
@@ -409,41 +347,32 @@ class SupervisorHomeScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.black,
-                fontSize: 16,
-                fontFamily: 'Playfair Display',
-                fontWeight: FontWeight.w500,
-                shadows: [
-                  Shadow(
-                    offset: Offset(0, 4),
-                    blurRadius: 4,
-                    color: Color(0x40000000),
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              value,
-              style: const TextStyle(
-                color: Color(0xFF1E3A8A),
-                fontSize: 22,
-                fontFamily: 'Sansita Swashed',
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            Text(label,
+                style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 16,
+                    fontFamily: 'Playfair Display',
+                    fontWeight: FontWeight.w500,
+                    shadows: [
+                      Shadow(
+                          offset: Offset(0, 4),
+                          blurRadius: 4,
+                          color: Color(0x40000000))
+                    ])),
+            Text(value,
+                style: const TextStyle(
+                    color: Color(0xFF1E3A8A),
+                    fontSize: 22,
+                    fontFamily: 'Sansita Swashed',
+                    fontWeight: FontWeight.w500)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTeamCard({
-    required String teamName,
-    required String projectName,
-  }) {
+  Widget _buildTeamCard(
+      {required String teamName, required String projectName}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -455,16 +384,14 @@ class SupervisorHomeScreen extends StatelessWidget {
         ),
         shadows: const [
           BoxShadow(
-            color: Color(0x19000000),
-            blurRadius: 2,
-            offset: Offset(0, 1),
-            spreadRadius: -1,
-          ),
+              color: Color(0x19000000),
+              blurRadius: 2,
+              offset: Offset(0, 1),
+              spreadRadius: -1),
           BoxShadow(
-            color: Color(0x19000000),
-            blurRadius: 3,
-            offset: Offset(0, 1),
-          ),
+              color: Color(0x19000000),
+              blurRadius: 3,
+              offset: Offset(0, 1)),
         ],
       ),
       child: Row(
@@ -475,25 +402,19 @@ class SupervisorHomeScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  teamName,
-                  style: const TextStyle(
-                    color: Color(0xFF101727),
-                    fontSize: 18,
-                    fontFamily: 'Arimo',
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
+                Text(teamName,
+                    style: const TextStyle(
+                        color: Color(0xFF101727),
+                        fontSize: 18,
+                        fontFamily: 'Arimo',
+                        fontWeight: FontWeight.w400)),
                 const SizedBox(height: 4),
-                Text(
-                  projectName,
-                  style: const TextStyle(
-                    color: Color(0xFF495565),
-                    fontSize: 16,
-                    fontFamily: 'Arimo',
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
+                Text(projectName,
+                    style: const TextStyle(
+                        color: Color(0xFF495565),
+                        fontSize: 16,
+                        fontFamily: 'Arimo',
+                        fontWeight: FontWeight.w400)),
               ],
             ),
           ),

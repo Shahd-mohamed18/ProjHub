@@ -10,18 +10,17 @@ import 'package:onboard/widgets/supervisor/task_title_field.dart';
 import 'package:onboard/widgets/supervisor/description_field.dart';
 import 'package:onboard/widgets/supervisor/due_date_field.dart';
 import 'package:onboard/widgets/supervisor/attachment_section.dart';
-import 'package:onboard/screens/supervisorScreens/all_tasks_screen.dart';
-import 'package:onboard/repositories/api_task_repository.dart';
-import 'package:onboard/cubits/teams/teams_cubit.dart';
 
 class CreateTaskScreen extends StatefulWidget {
   final String supervisorId;
+  final String supervisorName; // ← real name for "from" field
   final String? teamId;
   final List<TeamMember> teamMembers;
 
   const CreateTaskScreen({
     super.key,
     required this.supervisorId,
+    this.supervisorName = 'Supervisor',
     this.teamId,
     this.teamMembers = const [],
   });
@@ -34,10 +33,12 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   bool _isTask = true;
   bool _assignToAll = true;
   late Map<String, bool> _selectedMembers;
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _postTitleController = TextEditingController();
-  final TextEditingController _postDescController = TextEditingController();
+
+  final _titleController = TextEditingController();
+  final _descController = TextEditingController();
+  final _postTitleController = TextEditingController();
+  final _postDescController = TextEditingController();
+
   DateTime? _selectedDate;
   List<PlatformFile> _selectedFiles = [];
 
@@ -45,16 +46,21 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   void initState() {
     super.initState();
     _selectedMembers = {for (var m in widget.teamMembers) m.id: false};
+    print('📝 CreateTaskScreen init — teamId=${widget.teamId} '
+        'members=${widget.teamMembers.length} '
+        'supervisorId=${widget.supervisorId}');
   }
 
   @override
   void dispose() {
     _titleController.dispose();
-    _descriptionController.dispose();
+    _descController.dispose();
     _postTitleController.dispose();
     _postDescController.dispose();
     super.dispose();
   }
+
+  // ── file picker ───────────────────────────────────────────────
 
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
@@ -65,7 +71,8 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     if (result != null) setState(() => _selectedFiles.addAll(result.files));
   }
 
-  void _removeFile(int index) => setState(() => _selectedFiles.removeAt(index));
+  void _removeFile(int index) =>
+      setState(() => _selectedFiles.removeAt(index));
 
   Future<void> _selectDate() async {
     final picked = await showDatePicker(
@@ -77,97 +84,126 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     if (picked != null) setState(() => _selectedDate = picked);
   }
 
+  // ── save task ─────────────────────────────────────────────────
+
   void _saveTask() {
+    print('💾 _saveTask called');
+
+    // ── validation ──────────────────────────────────────────────
     if (_titleController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter task title')));
+      _snack('Please enter task title');
       return;
     }
     if (_selectedDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select due date')));
+      _snack('Please select due date');
       return;
     }
-    final assignedTo = _assignToAll
-        ? widget.teamMembers.map((m) => m.id).toList()
-        : _selectedMembers.entries
-            .where((e) => e.value)
-            .map((e) => e.key)
-            .toList();
-    if (assignedTo.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select at least one member')));
-      return;
+
+    // Build assigned list
+    List<String> assignedTo;
+    if (_assignToAll) {
+      // ✅ Fix: when "All Team Members" is selected but members list is empty
+      // (backend hasn't returned them yet), we still allow saving —
+      // the backend will assign to all members of the team automatically.
+      assignedTo = widget.teamMembers.map((m) => m.id).toList();
+      print('📋 Assigning to ALL — ${assignedTo.length} members found locally');
+    } else {
+      assignedTo = _selectedMembers.entries
+          .where((e) => e.value)
+          .map((e) => e.key)
+          .toList();
+      if (assignedTo.isEmpty) {
+        _snack('Please select at least one member');
+        return;
+      }
     }
+
+    final teamId = widget.teamId ?? '';
+    print('📤 Calling createTask — title="${_titleController.text.trim()}" '
+        'teamId=$teamId assignedTo=$assignedTo date=$_selectedDate');
+
     context.read<SupervisorTaskCubit>().createTask(
           title: _titleController.text.trim(),
-          description: _descriptionController.text.trim(),
+          description: _descController.text.trim(),
           dueDate: _selectedDate!,
           assignedTo: assignedTo,
-          teamId: widget.teamId ?? 'team_a',
+          teamId: teamId,
           attachment:
               _selectedFiles.isNotEmpty ? _selectedFiles.first.name : null,
+          supervisorName: widget.supervisorName,
         );
   }
 
   void _savePost() {
     if (_postTitleController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter post title')));
+      _snack('Please enter post title');
       return;
     }
     if (_postDescController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter post description')));
+      _snack('Please enter post description');
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Post published successfully!')));
+    _snack('Post published successfully!');
     Navigator.pop(context);
   }
 
+  void _snack(String msg) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  // ── build ─────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => SupervisorTaskCubit(
-        ApiTaskRepository(),
-        context.read<TeamsCubit>(),
-      ),
-      child: BlocListener<SupervisorTaskCubit, SupervisorTaskState>(
-        listener: (context, state) {
-          if (state is SupervisorTaskSuccess) {
-            ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Task created successfully!')));
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const AllTasksScreen()),
-            );
-          } else if (state is SupervisorTaskError) {
-            ScaffoldMessenger.of(context)
-                .showSnackBar(SnackBar(content: Text(state.message)));
-          }
-        },
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          body: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFFEFF6FF), Color(0xFFF4F4F4), Color(0xFF7D9FCA)],
-              ),
+    return BlocListener<SupervisorTaskCubit, SupervisorTaskState>(
+      listener: (context, state) {
+        print('🎯 SupervisorTaskCubit state → $state');
+
+        if (state is SupervisorTaskSuccess) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Task created successfully!'),
+              backgroundColor: Colors.green,
             ),
-            child: Column(
-              children: [
-                _buildAppBar(),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                    child: _isTask ? _buildTaskForm() : _buildPostForm(),
-                  ),
-                ),
+          );
+          // ✅ Fix: just pop back — AllTasksScreen manages its own cubit
+          // and will reload when it becomes visible again.
+          Navigator.pop(context);
+        } else if (state is SupervisorTaskError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFEFF6FF),
+                Color(0xFFF4F4F4),
+                Color(0xFF7D9FCA),
               ],
             ),
+          ),
+          child: Column(
+            children: [
+              _buildAppBar(),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 16),
+                  child: _isTask ? _buildTaskForm() : _buildPostForm(),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -180,7 +216,10 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       decoration: const BoxDecoration(
         color: Colors.white,
         boxShadow: [
-          BoxShadow(color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 1))
+          BoxShadow(
+              color: Color(0x3F000000),
+              blurRadius: 4,
+              offset: Offset(0, 1))
         ],
       ),
       child: Padding(
@@ -192,11 +231,13 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
               child: const Icon(Icons.arrow_back_ios_new, size: 20),
             ),
             const SizedBox(width: 16),
-            Text(_isTask ? 'Assign New Task' : 'Add Post',
-                style: const TextStyle(
-                    fontSize: 24,
-                    fontFamily: 'Roboto',
-                    fontWeight: FontWeight.w400)),
+            Text(
+              _isTask ? 'Assign New Task' : 'Add Post',
+              style: const TextStyle(
+                  fontSize: 24,
+                  fontFamily: 'Roboto',
+                  fontWeight: FontWeight.w400),
+            ),
           ],
         ),
       ),
@@ -208,7 +249,9 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TaskTypeSelector(
-            isTask: _isTask, onChanged: (v) => setState(() => _isTask = v)),
+          isTask: _isTask,
+          onChanged: (v) => setState(() => _isTask = v),
+        ),
         const SizedBox(height: 24),
         AssignToSection(
           assignToAll: _assignToAll,
@@ -221,7 +264,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         const SizedBox(height: 24),
         TaskTitleField(controller: _titleController),
         const SizedBox(height: 24),
-        DescriptionField(controller: _descriptionController),
+        DescriptionField(controller: _descController),
         const SizedBox(height: 24),
         DueDateField(selectedDate: _selectedDate, onTap: _selectDate),
         const SizedBox(height: 24),
@@ -242,61 +285,20 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TaskTypeSelector(
-            isTask: _isTask, onChanged: (v) => setState(() => _isTask = v)),
+          isTask: _isTask,
+          onChanged: (v) => setState(() => _isTask = v),
+        ),
         const SizedBox(height: 24),
         const Text('Post Title',
             style: TextStyle(fontSize: 20, fontFamily: 'Roboto')),
         const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: const [
-              BoxShadow(
-                  color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 4))
-            ],
-          ),
-          child: TextField(
-            controller: _postTitleController,
-            decoration: InputDecoration(
-              hintText: 'enter post title',
-              hintStyle: TextStyle(
-                  color: Colors.black.withOpacity(0.6),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w300),
-              border: InputBorder.none,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            ),
-          ),
-        ),
+        _buildTextField(_postTitleController, 'enter post title'),
         const SizedBox(height: 24),
         const Text('Description',
             style: TextStyle(fontSize: 20, fontFamily: 'Roboto')),
         const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: const [
-              BoxShadow(
-                  color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 4))
-            ],
-          ),
-          child: TextField(
-            controller: _postDescController,
-            maxLines: 4,
-            decoration: InputDecoration(
-              hintText: 'describe your post',
-              hintStyle: TextStyle(
-                  color: Colors.black.withOpacity(0.6),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w300),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.all(16),
-            ),
-          ),
-        ),
+        _buildTextField(_postDescController, 'describe your post',
+            maxLines: 4),
         const SizedBox(height: 32),
         _buildActionButtons(onSave: _savePost),
         const SizedBox(height: 20),
@@ -304,25 +306,56 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     );
   }
 
+  Widget _buildTextField(TextEditingController ctrl, String hint,
+      {int maxLines = 1}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x3F000000),
+              blurRadius: 4,
+              offset: Offset(0, 4))
+        ],
+      ),
+      child: TextField(
+        controller: ctrl,
+        maxLines: maxLines,
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(
+              color: Colors.black.withOpacity(0.6),
+              fontSize: 16,
+              fontWeight: FontWeight.w300),
+          border: InputBorder.none,
+          contentPadding: maxLines > 1
+              ? const EdgeInsets.all(16)
+              : const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
+      ),
+    );
+  }
+
   Widget _buildActionButtons({required VoidCallback onSave}) {
     return BlocBuilder<SupervisorTaskCubit, SupervisorTaskState>(
       builder: (context, state) {
-        final isLoading = state is SupervisorTaskLoading;
+        final loading = state is SupervisorTaskLoading;
         return Row(
           children: [
             Expanded(
               child: SizedBox(
                 height: 50,
                 child: OutlinedButton(
-                  onPressed: isLoading ? null : () => Navigator.pop(context),
+                  onPressed: loading ? null : () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFFD0D5DB)),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10)),
                   ),
                   child: const Text('Cancel',
-                      style:
-                          TextStyle(fontSize: 16, color: Color(0xFF354152))),
+                      style: TextStyle(
+                          fontSize: 16, color: Color(0xFF354152))),
                 ),
               ),
             ),
@@ -331,21 +364,22 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
               child: SizedBox(
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: isLoading ? null : onSave,
+                  onPressed: loading ? null : onSave,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF155DFC),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10)),
                   ),
-                  child: isLoading
+                  child: loading
                       ? const SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white))
+                              strokeWidth: 2, color: Colors.white),
+                        )
                       : const Text('Save',
-                          style:
-                              TextStyle(fontSize: 16, color: Colors.white)),
+                          style: TextStyle(
+                              fontSize: 16, color: Colors.white)),
                 ),
               ),
             ),
