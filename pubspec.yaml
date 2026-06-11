@@ -52,6 +52,9 @@ dependencies:
   http_parser: ^4.0.0
   http: ^1.6.0
   dio: ^5.9.2
+  firebase_messaging: ^16.3.0
+  cloud_functions: ^6.3.2
+  flutter_local_notifications: ^20.1.0
 
   
 
