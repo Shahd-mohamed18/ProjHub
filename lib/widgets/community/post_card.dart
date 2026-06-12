@@ -59,15 +59,36 @@ class PostCard extends StatelessWidget {
       children: [
         _CommunityAvatar(initial: post.userInitial),
         const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(post.userName,
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-            Text(post.timeAgo,
-                style: const TextStyle(color: Color(0xFF6A7282), fontSize: 12)),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(post.userName,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+              Text(post.timeAgo,
+                  style: const TextStyle(color: Color(0xFF6A7282), fontSize: 12)),
+            ],
+          ),
         ),
+        // Visibility badge
+        if (post.visibility != PostVisibility.public)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFFECFDF5),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.green.withOpacity(0.4), width: 0.5),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.group, size: 10, color: Colors.green),
+                SizedBox(width: 3),
+                Text('My Team',
+                    style: TextStyle(fontSize: 10, color: Colors.green)),
+              ],
+            ),
+          ),
       ],
     );
   }

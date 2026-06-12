@@ -2,6 +2,8 @@
 //
 // Changes vs original:
 //  1. Added decrementCommentCount() — called by CommentsScreen after a comment is deleted.
+//  2. loadPosts now also loads the current user's team members so myTeam posts
+//     from teammates are visible in the Discover feed.
 //  All other code is identical to the original.
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,9 +11,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/community/community_state.dart';
 import 'package:onboard/models/CommunityModels/post_model.dart';
 import 'package:onboard/repositories/community_repository.dart';
+import 'package:onboard/services/team_api_service.dart';
 
 class CommunityCubit extends Cubit<CommunityState> {
   final ICommunityRepository _repository;
+  final TeamApiService _teamApiService = TeamApiService();
 
   CommunityCubit(this._repository) : super(const CommunityInitial());
 
@@ -20,7 +24,7 @@ class CommunityCubit extends Cubit<CommunityState> {
       FirebaseAuth.instance.currentUser?.uid ?? 'current_user';
 
   // ─────────────────────────────────────────────
-  // loadPosts — always uses the real UID
+  // loadPosts — loads posts + current user's team members for visibility
   // ─────────────────────────────────────────────
   Future<void> loadPosts({String? userId}) async {
     final uid = userId ?? _realUid;
@@ -28,9 +32,11 @@ class CommunityCubit extends Cubit<CommunityState> {
 
     emit(const CommunityLoading());
     try {
+      // Load posts and team members in parallel
       final results = await Future.wait([
         _repository.getPosts(),
         _repository.getMyPosts(uid),
+        _teamApiService.getMyTeams(uid).catchError((_) => []),
       ]);
 
       final posts = (results[0] as List<PostModel>)
@@ -40,10 +46,29 @@ class CommunityCubit extends Cubit<CommunityState> {
           .map((p) => p.copyWith(isLiked: p.isLiked || p.isLikedBy(uid)))
           .toList();
 
+      // Collect all teammate IDs from all teams the current user belongs to
+      final teamMemberIds = <String>{};
+      final teams = results[2] as List;
+      for (final team in teams) {
+        for (final member in team.members) {
+          if (member.id != uid) teamMemberIds.add(member.id);
+        }
+        for (final assistant in team.assistants) {
+          if (assistant.id != uid) teamMemberIds.add(assistant.id);
+        }
+        // Also include supervisor
+        if (team.supervisorId != uid && team.supervisorId.isNotEmpty) {
+          teamMemberIds.add(team.supervisorId);
+        }
+      }
+
+      print('👥 [CUBIT] teamMemberIds: ${teamMemberIds.length} teammates');
+
       emit(CommunityLoaded(
         posts: posts,
         myPosts: myPosts,
         currentUserId: uid,
+        teamMemberIds: teamMemberIds.toList(),
       ));
     } catch (e) {
       emit(CommunityError('Failed to load posts: ${e.toString()}'));

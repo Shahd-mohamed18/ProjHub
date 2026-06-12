@@ -225,12 +225,15 @@ class _CommentsScreenState extends State<CommentsScreen> {
                             return _CommentCard(
                               comment: comment,
                               currentUserId: _currentUserId,
+                              currentUserName: _currentUserName,
                               onLike: () => cubit.toggleCommentLike(
                                   widget.post.id, comment.id),
                               onReply: () =>
                                   _startReply(comment.userName, comment.id),
                               onDelete: () => _confirmDeleteComment(
                                   context, cubit, comment.id),
+                              onDeleteReply: (replyId) =>
+                                  _confirmDeleteComment(context, cubit, replyId),
                             );
                           },
                         ),
@@ -462,8 +465,17 @@ class _CommentsScreenState extends State<CommentsScreen> {
   }
 
   void _sendComment(BuildContext context) {
-    final text = _commentController.text.trim();
+    String text = _commentController.text.trim();
     if (text.isEmpty) return;
+
+    // Strip the @mention prefix — send only the actual reply content
+    if (_replyingToName != null) {
+      final mention = '@$_replyingToName';
+      if (text.startsWith(mention)) {
+        text = text.substring(mention.length).trim();
+      }
+      if (text.isEmpty) return;
+    }
 
     final userId = _currentUserId;
     final userName = _currentUserName.isNotEmpty
@@ -472,7 +484,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
     final replyToCommentId = _replyingToCommentId;
     final replyToName = _replyingToName;
 
-    print('💬 [COMMENT] userId: $userId  userName: $userName  replyTo: $replyToCommentId');
+    print('💬 [COMMENT] userId: $userId  userName: $userName  replyTo: $replyToCommentId  content: $text');
 
     _commentController.clear();
     _focusNode.unfocus();
@@ -502,21 +514,32 @@ class _CommentsScreenState extends State<CommentsScreen> {
 class _CommentCard extends StatelessWidget {
   final CommunityCommentModel comment;
   final String currentUserId;
+  final String currentUserName;
   final VoidCallback onLike;
   final VoidCallback onReply;
   final VoidCallback onDelete;
+  final void Function(String replyId)? onDeleteReply;
 
   const _CommentCard({
     required this.comment,
     required this.currentUserId,
+    required this.currentUserName,
     required this.onLike,
     required this.onReply,
     required this.onDelete,
+    this.onDeleteReply,
   });
 
-  // ✅ Delete button only shown for own comments
-  bool get _isOwner =>
-      comment.userId.isNotEmpty && comment.userId == currentUserId;
+  // Ownership: match by userId if available, else match by userName
+  bool get _isOwner {
+    if (comment.userId.isNotEmpty && currentUserId.isNotEmpty) {
+      return comment.userId == currentUserId;
+    }
+    // Fallback: userName match (API doesn't return userId on GET comments)
+    return currentUserName.isNotEmpty &&
+        comment.userName.isNotEmpty &&
+        comment.userName.toLowerCase() == currentUserName.toLowerCase();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -616,7 +639,8 @@ class _CommentCard extends StatelessWidget {
             ...comment.replies.map((reply) => _ReplyBubble(
                   reply: reply,
                   currentUserId: currentUserId,
-                  onDeleteReply: onDelete,
+                  currentUserName: currentUserName,
+                  onDeleteReply: () => onDeleteReply?.call(reply.id),
                 )),
           ],
         ],
@@ -631,16 +655,25 @@ class _CommentCard extends StatelessWidget {
 class _ReplyBubble extends StatelessWidget {
   final CommunityCommentModel reply;
   final String currentUserId;
+  final String currentUserName;
   final VoidCallback onDeleteReply;
 
   const _ReplyBubble({
     required this.reply,
     required this.currentUserId,
+    required this.currentUserName,
     required this.onDeleteReply,
   });
 
-  bool get _isOwner =>
-      reply.userId.isNotEmpty && reply.userId == currentUserId;
+  // Ownership: match by userId if available, else match by userName
+  bool get _isOwner {
+    if (reply.userId.isNotEmpty && currentUserId.isNotEmpty) {
+      return reply.userId == currentUserId;
+    }
+    return currentUserName.isNotEmpty &&
+        reply.userName.isNotEmpty &&
+        reply.userName.toLowerCase() == currentUserName.toLowerCase();
+  }
 
   @override
   Widget build(BuildContext context) {

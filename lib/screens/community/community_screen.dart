@@ -229,9 +229,14 @@ class _DiscoverTab extends StatelessWidget {
 
         if (state is CommunityLoaded) {
           final visiblePosts = state.posts
-              .where((p) =>
-                  p.visibility == PostVisibility.public ||
-                  p.userId == state.currentUserId)
+              .where((p) {
+                if (p.visibility == PostVisibility.public) return true;
+                if (p.userId == state.currentUserId) return true;
+                // Show myTeam posts from teammates
+                if (p.visibility == PostVisibility.myTeam &&
+                    state.teamMemberIds.contains(p.userId)) return true;
+                return false;
+              })
               .toList();
 
           return RefreshIndicator(

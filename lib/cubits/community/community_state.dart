@@ -22,28 +22,32 @@ class CommunityLoaded extends CommunityState {
   final List<PostModel> myPosts;
   final String currentUserId; // 
   final bool isCreatingPost;
+  final List<String> teamMemberIds; // IDs of users who share a team with current user
 
   const CommunityLoaded({
     required this.posts,
     required this.myPosts,
     this.currentUserId = 'current_user',
     this.isCreatingPost = false,
+    this.teamMemberIds = const [],
   });
 
   @override
-  List<Object?> get props => [posts, myPosts, currentUserId, isCreatingPost];
+  List<Object?> get props => [posts, myPosts, currentUserId, isCreatingPost, teamMemberIds];
 
   CommunityLoaded copyWith({
     List<PostModel>? posts,
     List<PostModel>? myPosts,
     String? currentUserId,
     bool? isCreatingPost,
+    List<String>? teamMemberIds,
   }) {
     return CommunityLoaded(
       posts: posts ?? this.posts,
       myPosts: myPosts ?? this.myPosts,
       currentUserId: currentUserId ?? this.currentUserId,
       isCreatingPost: isCreatingPost ?? this.isCreatingPost,
+      teamMemberIds: teamMemberIds ?? this.teamMemberIds,
     );
   }
 }
