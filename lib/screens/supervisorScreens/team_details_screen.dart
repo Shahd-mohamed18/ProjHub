@@ -1,6 +1,12 @@
+// lib/screens/supervisorScreens/team_details_screen.dart
+//
+// ✅ Supervisor creates posts/announcements from the Task screen (Post tab
+//    in CreateTaskScreen). The "+ Post" button has been removed from here.
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:onboard/cubits/announcement/announcement_cubit.dart';
 import 'package:onboard/cubits/auth/auth_cubit.dart';
 import 'package:onboard/cubits/supervisor/supervisor_task_cubit.dart';
 import 'package:onboard/cubits/teams/teams_cubit.dart';
@@ -31,12 +37,20 @@ class TeamDetailsScreen extends StatefulWidget {
 class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
   late TeamModel _team;
   bool _isLoading = false;
+  late final AnnouncementCubit _announcementCubit;
 
   @override
   void initState() {
     super.initState();
     _team = widget.team;
+    _announcementCubit = AnnouncementCubit();
     _fetchTeamDetails();
+  }
+
+  @override
+  void dispose() {
+    _announcementCubit.close();
+    super.dispose();
   }
 
   Future<void> _fetchTeamDetails() async {
@@ -59,16 +73,13 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
 
   Future<void> _refreshTeamDetails() => _fetchTeamDetails();
 
-  // ── Add Task ─────────────────────────────────────────────────
+  // ── Add Task / Post ───────────────────────────────────────────────────────────
 
   void _navigateToCreateTask(BuildContext context) {
     final userModel = context.read<AuthCubit>().state.userModel;
     final supervisorId = userModel?.uid ?? '';
     final supervisorName = userModel?.fullName ?? 'Supervisor';
     final teamsCubit = context.read<TeamsCubit>();
-
-    print('➕ Opening CreateTaskScreen — supervisorId=$supervisorId '
-        'supervisorName=$supervisorName teamId=${_team.id}');
 
     Navigator.push(
       context,
@@ -83,13 +94,14 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
             supervisorName: supervisorName,
             teamId: _team.id,
             teamMembers: _team.members,
+            team: _team, // ← pass team so Post tab can create announcements
           ),
         ),
       ),
     );
   }
 
-  // ── build ─────────────────────────────────────────────────────
+  // ── build ────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -199,7 +211,7 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
                     _buildTotalTasksCard(),
                     const SizedBox(height: 22),
 
-                    // Team Members header + Add Task
+                    // Team Members header + action buttons
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -212,20 +224,24 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
                             fontWeight: FontWeight.w400,
                           ),
                         ),
-                        if (canAddTask)
-                          GestureDetector(
-                            // ✅ Fixed: was print('Add Task clicked')
-                            onTap: () => _navigateToCreateTask(context),
-                            child: const Text(
-                              '+ Add Task',
-                              style: TextStyle(
-                                color: Color(0xFF155CFB),
-                                fontSize: 18,
-                                fontFamily: 'Arimo',
-                                fontWeight: FontWeight.w400,
+                        Row(
+                          children: [
+                            if (canAddTask)
+                              GestureDetector(
+                                onTap: () =>
+                                    _navigateToCreateTask(context),
+                                child: const Text(
+                                  '+ Add Task',
+                                  style: TextStyle(
+                                    color: Color(0xFF155CFB),
+                                    fontSize: 18,
+                                    fontFamily: 'Arimo',
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
+                          ],
+                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -233,6 +249,7 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
                     const SizedBox(height: 22),
 
                     if (isSupervisor) ...[
+                      
                       _buildAddMembersButton(),
                       const SizedBox(height: 12),
                       _buildRemoveTeamButton(),
@@ -248,7 +265,7 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
     );
   }
 
-  // ── Cards ─────────────────────────────────────────────────────
+  // ── Cards ─────────────────────────────────────────────────────────────────
 
   Widget _buildProjectCard() {
     return Container(
@@ -424,8 +441,8 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text('No assistants assigned yet',
-                  style:
-                      TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                  style: TextStyle(
+                      color: Colors.grey.shade600, fontSize: 14)),
             ),
           if (_getStudents().isNotEmpty)
             ..._getStudents().map((s) => _buildStudentTile(s))
@@ -433,20 +450,23 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text('No students assigned yet',
-                  style:
-                      TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                  style: TextStyle(
+                      color: Colors.grey.shade600, fontSize: 14)),
             ),
         ],
       ),
     );
   }
 
+  
+
   Widget _buildAddMembersButton() {
     return GestureDetector(
       onTap: () async {
         final result = await Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => AddMembersScreen(team: _team)),
+          MaterialPageRoute(
+              builder: (_) => AddMembersScreen(team: _team)),
         );
         if (result == true && mounted) {
           await _refreshTeamDetails();
@@ -471,7 +491,9 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
         child: const Center(
           child: Text('Add Members',
               style: TextStyle(
-                  color: Colors.white, fontSize: 16, fontFamily: 'Arimo')),
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontFamily: 'Arimo')),
         ),
       ),
     );
@@ -501,7 +523,7 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
     );
   }
 
-  // ── Helpers ───────────────────────────────────────────────────
+  // ── Helpers ────────────────────────────────────────────────────────────────
 
   List<TeamMember> _getStudents() => _team.members.where((m) {
         if (m.id == _team.supervisorId) return false;
@@ -516,7 +538,8 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
       decoration: const BoxDecoration(
         color: Color(0xFFFEF9C2),
         border: Border(
-            bottom: BorderSide(width: 1.27, color: Color(0xFFF2F4F6))),
+            bottom:
+                BorderSide(width: 1.27, color: Color(0xFFF2F4F6))),
       ),
       child: Row(
         children: [
@@ -558,7 +581,8 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
       padding: const EdgeInsets.all(12),
       decoration: const BoxDecoration(
         border: Border(
-            bottom: BorderSide(width: 1.27, color: Color(0xFFF2F4F6))),
+            bottom:
+                BorderSide(width: 1.27, color: Color(0xFFF2F4F6))),
       ),
       child: Row(
         children: [
@@ -645,7 +669,8 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
 
   Widget _avatarContent(TeamMember m, String? url, bool isAssistant) {
     final color = isAssistant ? Colors.purple : Colors.blue;
-    final initials = m.name.isNotEmpty ? m.name[0].toUpperCase() : '?';
+    final initials =
+        m.name.isNotEmpty ? m.name[0].toUpperCase() : '?';
     if (url == null || url.isEmpty) {
       return Center(
           child: Text(initials,
@@ -716,15 +741,15 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
               if (mounted) snack.close();
               if (mounted) {
                 ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                  content: Text(ok
-                      ? 'Team removed'
-                      : 'Failed to remove team'),
+                  content:
+                      Text(ok ? 'Team removed' : 'Failed to remove team'),
                   backgroundColor: ok ? Colors.green : Colors.red,
                   behavior: SnackBarBehavior.floating,
                 ));
               }
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style:
+                TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Remove'),
           ),
         ],

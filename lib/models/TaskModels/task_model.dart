@@ -13,6 +13,9 @@ class TaskModel {
   final String supervisorId;
   final List<Map<String, String>>? supervisorAttachments;
   final List<Map<String, String>>? studentAttachments;
+  /// Name of the student who submitted this task (null until submitted).
+  /// Populated from the backend response if available.
+  final String? submittedByName;
 
   const TaskModel({
     required this.id,
@@ -26,6 +29,7 @@ class TaskModel {
     this.supervisorAttachments,
     this.studentAttachments,
     this.isCompleted = false,
+    this.submittedByName,
   });
 
   String get formattedDueDate => DateFormat('MMM dd, yyyy').format(dueDate);
@@ -44,6 +48,7 @@ class TaskModel {
     List<Map<String, String>>? supervisorAttachments,
     List<Map<String, String>>? studentAttachments,
     bool? isCompleted,
+    String? submittedByName,
   }) {
     return TaskModel(
       id: id ?? this.id,
@@ -58,6 +63,7 @@ class TaskModel {
           supervisorAttachments ?? this.supervisorAttachments,
       studentAttachments: studentAttachments ?? this.studentAttachments,
       isCompleted: isCompleted ?? this.isCompleted,
+      submittedByName: submittedByName ?? this.submittedByName,
     );
   }
 
@@ -78,7 +84,13 @@ class TaskModel {
       // 'from' is often null from backend — fall back gracefully
       from: (json['from'] ??
               json['supervisorName'] ??
+              json['supervisorFullName'] ??
               json['createdByName'] ??
+              json['assignedByName'] ??
+              json['submittedByName'] ??
+              json['studentName'] ??
+              json['createdBy'] ??
+              json['userName'] ??
               'Supervisor')
           .toString(),
       dueDate: parsedDate,
@@ -92,15 +104,14 @@ class TaskModel {
           : const [],
       // description may be null — show nothing, not "no description"
       description: json['description']?.toString(),
-      supervisorAttachments:
-          (json['supervisorAttachments'] as List<dynamic>?)
-              ?.map((e) => Map<String, String>.from(e as Map))
-              .toList(),
-      studentAttachments:
-          (json['studentAttachments'] as List<dynamic>?)
-              ?.map((e) => Map<String, String>.from(e as Map))
-              .toList(),
+      supervisorAttachments: _parseAttachList(json['supervisorAttachments']),
+      studentAttachments: _parseAttachList(json['studentAttachments']),
       isCompleted: json['isCompleted'] ?? json['is_completed'] ?? false,
+      submittedByName: (json['submittedByName'] ??
+              json['studentName'] ??
+              json['submittedBy'] ??
+              json['submitterName'])
+          ?.toString(),
     );
   }
 
@@ -116,6 +127,7 @@ class TaskModel {
         'supervisorAttachments': supervisorAttachments,
         'studentAttachments': studentAttachments,
         'isCompleted': isCompleted,
+        'submittedByName': submittedByName,
       };
 
   // ✅ Mock tasks
@@ -166,6 +178,27 @@ class TaskModel {
   ];
 
   static List<TaskModel> get mockTasks => List.from(_tasks);
+
+  /// Safely parses an attachment list regardless of whether it came from
+  /// raw JSON (List of Map<String,dynamic>) or already-normed data
+  /// (List of Map<String,String>). Never throws.
+  static List<Map<String, String>>? _parseAttachList(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is! List) return null;
+    if (raw.isEmpty) return [];
+    try {
+      return raw.map<Map<String, String>>((e) {
+        if (e is Map<String, String>) return e;
+        final m = e as Map;
+        return {
+          'name': (m['name'] ?? m['fileName'] ?? '').toString(),
+          'type': (m['type'] ?? m['fileType'] ?? 'file').toString(),
+        };
+      }).toList();
+    } catch (_) {
+      return null;
+    }
+  }
 
   static void markAsCompleted(String taskId, List<String> filePaths) {
     final index = _tasks.indexWhere((t) => t.id == taskId);

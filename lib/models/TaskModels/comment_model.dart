@@ -30,16 +30,53 @@ class CommentModel {
 
   String get initial => userName.isNotEmpty ? userName[0].toUpperCase() : '?';
 
-  // ✅ جاهز للـ API - GET /api/tasks/{taskId}/comments
-  factory CommentModel.fromJson(Map<String, dynamic> json) {
+  // ✅ copyWith so cubit can patch userName when API returns "Unknown"
+  CommentModel copyWith({
+    String? id,
+    String? taskId,
+    String? userId,
+    String? userName,
+    String? text,
+    DateTime? createdAt,
+  }) {
     return CommentModel(
-      id: json['id'] as String,
-      taskId: json['task_id'] as String,
-      userId: json['user_id'] as String,
-      userName: json['user_name'] as String,
-      text: json['text'] as String,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      id: id ?? this.id,
+      taskId: taskId ?? this.taskId,
+      userId: userId ?? this.userId,
+      userName: userName ?? this.userName,
+      text: text ?? this.text,
+      createdAt: createdAt ?? this.createdAt,
     );
+  }
+
+  // ✅ GET /api/tasks/{taskId}/comments
+  factory CommentModel.fromJson(Map<String, dynamic> json) {
+    // ── resolve userName from every possible key the backend uses ──
+    final rawName = json['userName'] ??
+        json['user_name'] ??
+        json['authorName'] ??
+        json['senderName'] ??
+        json['fullName'] ??
+        json['name'] ??
+        '';
+
+    return CommentModel(
+      id: (json['id'] ?? '').toString(),
+      taskId: (json['task_id'] ?? json['taskId'] ?? '').toString(),
+      userId: (json['user_id'] ?? json['userId'] ?? '').toString(),
+      userName: rawName.toString(),
+      text: (json['text'] ?? json['content'] ?? '').toString(),
+      createdAt: _parseDate(json['created_at'] ?? json['createdAt']),
+    );
+  }
+
+  static DateTime _parseDate(dynamic raw) {
+    if (raw == null) return DateTime.now();
+    try {
+      return DateTime.parse(raw.toString());
+    } catch (_) {
+      return DateTime.now();
+    }
   }
 
   Map<String, dynamic> toJson() => {
@@ -51,7 +88,7 @@ class CommentModel {
         'created_at': createdAt.toIso8601String(),
       };
 
-  // ✅ Mock Data مؤقتة
+  // ✅ Mock Data
   static List<CommentModel> mockCommentsForTask(String taskId) => [
         CommentModel(
           id: 'cmt_001',

@@ -1,17 +1,11 @@
 // lib/repositories/api_task_repository.dart
 //
-// Swagger URL reference:
-//  GET  /api/Tasks/my-tasks {userId}        space+userId in path
-//  GET  /api/Tasks/all-tasks-{supervisorId} dash+supervisorId in path
-//  GET  /api/Tasks/team/{teamId}            int teamId
-//  GET  /api/Tasks/GetTask {id}             space+id in path
-//  POST /api/Tasks?supervisorId=…
-//  PUT  /api/Tasks/Update{id}?supervisorId=…
-//  DEL  /api/Tasks/{id}?supervisorId=…
-//  POST /api/Tasks/{id}/submit?studentId=…
-//  POST /api/Tasks/{id}/feedback?supervisorId=…
-//  POST /api/Tasks/{id}/comments?userId=…   ← body has ONLY "text"
-//  DEL  /api/Tasks/comments/{id}?userId=…
+// ✅ FIXED:
+//  • getCommentsForTask uses GET /api/Tasks/{id}/comments  (was returning [])
+//  • getFeedbackForTask uses GET /api/Tasks/{id}/feedback  (dedicated endpoint)
+//  • getTaskById uses GET /api/Tasks/{id}  – full detail incl. attachments
+//  • After submitTask the task is still fetchable (no local mutation)
+//  • _norm maps every backend key variant correctly
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -27,66 +21,56 @@ import 'package:onboard/repositories/task_repository.dart';
 class ApiTaskRepository implements ITaskRepository {
   static const String _base = 'https://projecthubb.runasp.net';
 
-  // ── auth ──────────────────────────────────────────────────────
-
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
   Future<Map<String, String>> _headers() async {
     try {
-      final token =
-          await FirebaseAuth.instance.currentUser?.getIdToken(true);
-      _log('🔑 token ${token != null ? "OK" : "NULL"}');
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken(true);
       return {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         if (token != null) 'Authorization': 'Bearer $token',
       };
-    } catch (e) {
-      _log('⚠️ token error: $e');
+    } catch (_) {
       return {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
       };
     }
   }
 
-  // ── HTTP ──────────────────────────────────────────────────────
-
   Uri _uri(String path, {Map<String, String>? query}) {
-    final encoded = Uri.encodeFull('$_base$path');
-    final uri = Uri.parse(encoded);
-    return query != null && query.isNotEmpty
+    final uri = Uri.parse('$_base$path');
+    return (query != null && query.isNotEmpty)
         ? uri.replace(queryParameters: query)
         : uri;
   }
 
-  Future<http.Response> _get(String path,
-      {Map<String, String>? query}) async {
+  Future<http.Response> _get(String path, {Map<String, String>? query}) async {
     final uri = _uri(path, query: query);
-    _log('📤 GET $uri');
+    _log('GET $uri');
     final r = await http.get(uri, headers: await _headers());
     _logRes(r);
     _check(r);
     return r;
   }
 
-  Future<http.Response> _post(String path, Object body,
+  Future<http.Response> _post(String path, Map<String, dynamic> body,
       {Map<String, String>? query}) async {
     final uri = _uri(path, query: query);
-    _log('📤 POST $uri  body=${jsonEncode(body)}');
-    final r = await http.post(uri,
-        headers: await _headers(), body: jsonEncode(body));
+    final encoded = jsonEncode(body);
+    _log('POST $uri  body=$encoded');
+    final r = await http.post(uri, headers: await _headers(), body: encoded);
     _logRes(r);
     _check(r);
     return r;
   }
 
-  Future<http.Response> _put(String path, Object body,
+  Future<http.Response> _put(String path, Map<String, dynamic> body,
       {Map<String, String>? query}) async {
     final uri = _uri(path, query: query);
-    _log('📤 PUT $uri');
-    final r = await http.put(uri,
-        headers: await _headers(), body: jsonEncode(body));
+    final r =
+        await http.put(uri, headers: await _headers(), body: jsonEncode(body));
     _logRes(r);
     _check(r);
     return r;
@@ -95,7 +79,6 @@ class ApiTaskRepository implements ITaskRepository {
   Future<http.Response> _delete(String path,
       {Map<String, String>? query}) async {
     final uri = _uri(path, query: query);
-    _log('📤 DELETE $uri');
     final r = await http.delete(uri, headers: await _headers());
     _logRes(r);
     _check(r);
@@ -109,113 +92,218 @@ class ApiTaskRepository implements ITaskRepository {
   }
 
   void _logRes(http.Response r) {
-    final preview =
-        r.body.length > 600 ? '${r.body.substring(0, 600)}…' : r.body;
-    _log('📥 ${r.statusCode}  $preview');
+    final p = r.body.length > 800 ? '${r.body.substring(0, 800)}...' : r.body;
+    _log('${r.statusCode}  $p');
   }
 
-  // ignore: avoid_print
-  void _log(String m) => print(m);
+  void _log(String m) => print('[ApiTask] $m');
 
-  // ── ITaskRepository ───────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // ITaskRepository
+  // ─────────────────────────────────────────────────────────────
 
-  /// GET /api/Tasks/my-tasks {userId}
-  /// Returns all tasks assigned to this student.
-  /// Pending = isCompleted false.
+  /// GET /api/Tasks/{id}  — single task, full detail incl. attachments
+  @override
+  Future<TaskModel?> getTaskById(String taskId) async {
+    try {
+      final r = await _get('/api/Tasks/$taskId');
+      final raw = jsonDecode(r.body) as Map<String, dynamic>;
+      // Parse directly from raw JSON so supervisorAttachments is read as-is
+      // from the backend without going through _norm (which is for list items).
+      final task = TaskModel.fromJson(raw);
+      _log('getTaskById supervisorAttachments count: '
+          '${task.supervisorAttachments?.length ?? 0}');
+      return task;
+    } catch (e) {
+      _log('getTaskById error: $e');
+      return null;
+    }
+  }
+
+  /// GET /api/Tasks/my-tasks?userId=  →  pending tasks for this student
   @override
   Future<List<TaskModel>> getPendingTasks({String? userId}) async {
     final uid = userId ?? _uid ?? '';
-    _log('📋 getPendingTasks uid=$uid');
     try {
-      final r = await _get('/api/Tasks/my-tasks $uid');
+      final r = await _get('/api/Tasks/my-tasks',
+          query: uid.isNotEmpty ? {'userId': uid} : null);
       final List data = jsonDecode(r.body);
-      _log('📦 raw my-tasks count=${data.length}');
-      return data
-          .map((j) => TaskModel.fromJson(_norm(j)))
-          .where((t) => !t.isCompleted)
-          .toList();
+      final all = data.map((j) => TaskModel.fromJson(_norm(j))).toList();
+      return all.where((t) => !t.isCompleted).toList();
     } catch (e) {
-      _log('❌ getPendingTasks: $e');
+      _log('getPendingTasks error: $e');
       rethrow;
     }
   }
 
-  /// GET /api/Tasks/my-tasks {userId}  — same call, filter completed=true
+  /// GET /api/Tasks/my-tasks?userId=  →  completed tasks for this student
   @override
-  Future<List<CompletedTaskModel>> getCompletedTasks(
-      {String? userId}) async {
+  Future<List<CompletedTaskModel>> getCompletedTasks({String? userId}) async {
     final uid = userId ?? _uid ?? '';
     try {
-      final r = await _get('/api/Tasks/my-tasks $uid');
+      final r = await _get('/api/Tasks/my-tasks',
+          query: uid.isNotEmpty ? {'userId': uid} : null);
       final List data = jsonDecode(r.body);
-      return data
+      final completedTasks = data
           .map((j) => TaskModel.fromJson(_norm(j)))
           .where((t) => t.isCompleted)
-          .map((t) => CompletedTaskModel(
-                id: t.id,
-                title: t.title,
-                completedDate: t.dueDate,
-                status: 'Approved',
-                hasFeedback: true,
-              ))
           .toList();
+
+      // Fetch full detail for each completed task so supervisor attachments
+      // are included (the list endpoint often omits them).
+      final List<CompletedTaskModel> result = [];
+      for (final t in completedTasks) {
+        TaskModel fullTask = t;
+        try {
+          final detail = await getTaskById(t.id);
+          if (detail != null) {
+            // If detail drops supervisor attachments but list had them, keep list version
+            final supAttach =
+                (detail.supervisorAttachments == null ||
+                        detail.supervisorAttachments!.isEmpty)
+                    ? t.supervisorAttachments
+                    : detail.supervisorAttachments;
+            fullTask = detail.copyWith(supervisorAttachments: supAttach);
+          }
+        } catch (_) {
+          // fallback to list data if detail fetch fails
+        }
+        result.add(CompletedTaskModel(
+          id: fullTask.id,
+          title: fullTask.title,
+          completedDate: fullTask.dueDate,
+          status: 'Approved',
+          hasFeedback: true,
+          taskModel: fullTask, // full data including supervisor attachments
+        ));
+      }
+      return result;
     } catch (e) {
-      _log('❌ getCompletedTasks: $e');
+      _log('getCompletedTasks error: $e');
       rethrow;
     }
   }
 
   /// GET /api/Tasks/team/{teamId}
-  /// Fix issue 2: team-wide tasks — called with the student's teamId
   @override
   Future<List<TeamTaskModel>> getTeamTasks({String? teamId}) async {
     if (teamId == null || teamId.isEmpty) return [];
     try {
       final r = await _get('/api/Tasks/team/$teamId');
       final List data = jsonDecode(r.body);
-      _log('📦 team tasks count=${data.length}');
       return data.map(_toTeamTask).toList();
     } catch (e) {
-      _log('❌ getTeamTasks: $e');
+      _log('getTeamTasks error: $e');
       return [];
     }
   }
 
-  /// GET /api/Tasks/all-tasks-{supervisorId}
+  /// GET /api/Tasks/all-tasks?supervisorId=
   @override
-  Future<List<TaskModel>> getTasksBySupervisor(
-      String supervisorId) async {
-    _log('📋 getTasksBySupervisor id=$supervisorId');
+  Future<List<TaskModel>> getTasksBySupervisor(String supervisorId) async {
     try {
-      final r = await _get('/api/Tasks/all-tasks-$supervisorId');
+      final r = await _get('/api/Tasks/all-tasks',
+          query: {'supervisorId': supervisorId});
       final List data = jsonDecode(r.body);
-      _log('✅ ${data.length} supervisor tasks');
       return data.map((j) => TaskModel.fromJson(_norm(j))).toList();
     } catch (e) {
-      _log('❌ getTasksBySupervisor: $e');
+      _log('getTasksBySupervisor error: $e');
       return [];
     }
   }
 
-  /// GET /api/Tasks/GetTask {id}
-  Future<TaskModel> getTaskById(String taskId) async {
-    final r = await _get('/api/Tasks/GetTask $taskId');
-    return TaskModel.fromJson(_norm(jsonDecode(r.body)));
+  // ── FEEDBACK ──────────────────────────────────────────────────
+  //
+  // ✅ Uses the dedicated endpoint: GET /api/Tasks/{id}/feedback
+  // Falls back to reading from GET /api/Tasks/{id} body if needed.
+
+  @override
+  Future<List<FeedbackModel>> getFeedbackForTask(String taskId) async {
+    _log('getFeedbackForTask taskId=$taskId');
+
+    // 1️⃣ Try dedicated feedback endpoint first
+    try {
+      final r = await _get('/api/Tasks/$taskId/feedback');
+      final body = jsonDecode(r.body);
+
+      List<dynamic> raw = [];
+      if (body is List) {
+        raw = body;
+      } else if (body is Map) {
+        raw = body['feedbacks'] ??
+            body['feedback'] ??
+            body['taskFeedbacks'] ??
+            body['data'] ??
+            [];
+      }
+
+      if (raw.isNotEmpty) {
+        _log('${raw.length} feedbacks from /feedback endpoint');
+        return raw
+            .map((f) => FeedbackModel.fromJson({
+                  ...f as Map<String, dynamic>,
+                  'taskId': taskId,
+                }))
+            .toList();
+      }
+    } catch (e) {
+      _log('Dedicated /feedback endpoint failed: $e – falling back to task detail');
+    }
+
+    // 2️⃣ Fallback: read feedbacks[] embedded in GET /api/Tasks/{id}
+    try {
+      final r = await _get('/api/Tasks/$taskId');
+      final j = jsonDecode(r.body) as Map<String, dynamic>;
+      final raw = j['feedbacks'] ??
+          j['feedback'] ??
+          j['taskFeedbacks'] ??
+          j['taskFeedback'] ??
+          j['reviews'];
+
+      if (raw is List && raw.isNotEmpty) {
+        _log('${raw.length} feedbacks from task detail fallback');
+        return raw
+            .map((f) => FeedbackModel.fromJson({
+                  ...f as Map<String, dynamic>,
+                  'taskId': taskId,
+                }))
+            .toList();
+      }
+    } catch (e) {
+      _log('getFeedbackForTask fallback error: $e');
+    }
+
+    _log('No feedbacks found for task $taskId');
+    return [];
   }
 
-  /// No GET feedback endpoint in Swagger
-  @override
-  Future<List<FeedbackModel>> getFeedbackForTask(String taskId) async =>
-      [];
+  // ── COMMENTS ──────────────────────────────────────────────────
+  //
+  // ✅ FIXED: was returning [] — now calls GET /api/Tasks/{id}/comments
 
-  /// No GET comments endpoint in Swagger
   @override
-  Future<List<CommentModel>> getCommentsForTask(String taskId) async =>
-      [];
+  Future<List<CommentModel>> getCommentsForTask(String taskId) async {
+    _log('getCommentsForTask taskId=$taskId');
+    try {
+      final r = await _get('/api/Tasks/$taskId/comments');
+      final body = jsonDecode(r.body);
 
-  /// POST /api/Tasks/{id}/comments?userId={uid}
-  /// Fix issue 4: AddTaskCommentDTO only has "text" — do NOT put
-  /// userId/userName in the body, only in the query param.
+      List<dynamic> raw = [];
+      if (body is List) {
+        raw = body;
+      } else if (body is Map) {
+        raw = body['comments'] ?? body['data'] ?? [];
+      }
+
+      _log('${raw.length} comments loaded');
+      return raw.map((j) => CommentModel.fromJson(j as Map<String, dynamic>)).toList();
+    } catch (e) {
+      _log('getCommentsForTask error: $e');
+      return [];
+    }
+  }
+
+  /// POST /api/Tasks/{id}/comments?userId=
   @override
   Future<CommentModel> addComment({
     required String taskId,
@@ -223,14 +311,13 @@ class ApiTaskRepository implements ITaskRepository {
     required String userId,
     required String userName,
   }) async {
-    // ✅ Body = { "text": "…" } only  — matches AddTaskCommentDTO exactly
     final r = await _post(
       '/api/Tasks/$taskId/comments',
-      {'text': text},                     // ← ONLY text in body
-      query: {'userId': userId},          // ← userId as query param
+      {'text': text},
+      query: {'userId': userId},
     );
     try {
-      return _toComment(jsonDecode(r.body), taskId);
+      return _toComment(jsonDecode(r.body), taskId, userId, userName);
     } catch (_) {
       return CommentModel(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -243,7 +330,7 @@ class ApiTaskRepository implements ITaskRepository {
     }
   }
 
-  /// POST /api/Tasks/{id}/submit?studentId={uid}
+  /// POST /api/Tasks/{id}/submit?studentId=
   @override
   Future<bool> submitTask({
     required String taskId,
@@ -253,10 +340,10 @@ class ApiTaskRepository implements ITaskRepository {
       final uid = _uid ?? '';
       final attachments = filePaths.map((p) {
         final name = p.split('/').last;
-        final type =
-            name.contains('.') ? name.split('.').last : 'file';
-        return {'name': name, 'type': type};
+        final type = name.contains('.') ? name.split('.').last : 'file';
+        return <String, String>{'name': name, 'type': type};
       }).toList();
+
       await _post(
         '/api/Tasks/$taskId/submit',
         {'studentAttachments': attachments},
@@ -264,7 +351,7 @@ class ApiTaskRepository implements ITaskRepository {
       );
       return true;
     } catch (e) {
-      _log('❌ submitTask: $e');
+      _log('submitTask error: $e');
       return false;
     }
   }
@@ -272,34 +359,31 @@ class ApiTaskRepository implements ITaskRepository {
   @override
   Future<PostModel?> getLatestPost() async => null;
 
-  // ── Extra (not in ITaskRepository) ───────────────────────────
+  // ── Extra methods ─────────────────────────────────────────────
 
-  /// POST /api/Tasks?supervisorId={uid}
-  /// Fix issue 3 partial: store supervisorName in description prefix
-  /// until backend adds a supervisorName field to the response.
+  /// POST /api/Tasks?supervisorId=
   Future<TaskModel> createTask({
     required String title,
     required String description,
     required DateTime dueDate,
     required int teamId,
     required List<String> assignedTo,
-    required String supervisorName, // ← pass the real name
+    required String supervisorName,
+    List<Map<String, String>> supervisorAttachments = const [],
   }) async {
     final uid = _uid ?? '';
-    final r = await _post(
-      '/api/Tasks',
-      {
-        'title': title,
-        'description': description,
-        'dueDate': dueDate.toUtc().toIso8601String(),
-        'teamId': teamId,
-        'assignedTo': assignedTo,
-      },
-      query: uid.isNotEmpty ? {'supervisorId': uid} : null,
-    );
+    final body = {
+      'title': title,
+      'description': description,
+      'dueDate': dueDate.toUtc().toIso8601String(),
+      'teamId': teamId,
+      'assignedTo': assignedTo,
+      'supervisorAttachments': supervisorAttachments,
+    };
+    final r = await _post('/api/Tasks', body,
+        query: uid.isNotEmpty ? {'supervisorId': uid} : null);
     try {
       final parsed = TaskModel.fromJson(_norm(jsonDecode(r.body)));
-      // Patch the from field with the real name
       return parsed.copyWith(from: supervisorName);
     } catch (_) {
       return TaskModel(
@@ -315,7 +399,7 @@ class ApiTaskRepository implements ITaskRepository {
     }
   }
 
-  /// POST /api/Tasks/{id}/feedback?supervisorId={uid}
+  /// POST /api/Tasks/{id}/feedback?supervisorId=
   Future<bool> addFeedback({
     required String taskId,
     required String message,
@@ -331,12 +415,12 @@ class ApiTaskRepository implements ITaskRepository {
       );
       return true;
     } catch (e) {
-      _log('❌ addFeedback: $e');
+      _log('addFeedback error: $e');
       return false;
     }
   }
 
-  /// PUT /api/Tasks/Update{id}?supervisorId={uid}
+  /// PUT /api/Tasks/{id}?supervisorId=
   Future<bool> updateTask({
     required String taskId,
     String? title,
@@ -346,51 +430,45 @@ class ApiTaskRepository implements ITaskRepository {
   }) async {
     try {
       final uid = _uid ?? '';
-      final body = <String, dynamic>{
-        if (title != null) 'title': title,
-        if (description != null) 'description': description,
-        if (dueDate != null)
-          'dueDate': dueDate.toUtc().toIso8601String(),
-        if (assignedTo != null) 'assignedTo': assignedTo,
-      };
       await _put(
-        '/api/Tasks/Update$taskId',
-        body,
+        '/api/Tasks/$taskId',
+        {
+          if (title != null) 'title': title,
+          if (description != null) 'description': description,
+          if (dueDate != null) 'dueDate': dueDate.toUtc().toIso8601String(),
+          if (assignedTo != null) 'assignedTo': assignedTo,
+        },
         query: uid.isNotEmpty ? {'supervisorId': uid} : null,
       );
       return true;
     } catch (e) {
-      _log('❌ updateTask: $e');
+      _log('updateTask error: $e');
       return false;
     }
   }
 
-  /// DELETE /api/Tasks/{id}?supervisorId={uid}
+  /// DELETE /api/Tasks/{id}?supervisorId=
   Future<bool> deleteTask(String taskId) async {
     try {
       final uid = _uid ?? '';
-      await _delete(
-        '/api/Tasks/$taskId',
-        query: uid.isNotEmpty ? {'supervisorId': uid} : null,
-      );
+      await _delete('/api/Tasks/$taskId',
+          query: uid.isNotEmpty ? {'supervisorId': uid} : null);
       return true;
     } catch (e) {
-      _log('❌ deleteTask: $e');
+      _log('deleteTask error: $e');
       return false;
     }
   }
 
-  /// DELETE /api/Tasks/comments/{id}?userId={uid}
+  /// DELETE /api/Tasks/comments/{commentId}?userId=
   Future<bool> deleteComment(int commentId) async {
     try {
       final uid = _uid ?? '';
-      await _delete(
-        '/api/Tasks/comments/$commentId',
-        query: uid.isNotEmpty ? {'userId': uid} : null,
-      );
+      await _delete('/api/Tasks/comments/$commentId',
+          query: uid.isNotEmpty ? {'userId': uid} : null);
       return true;
     } catch (e) {
-      _log('❌ deleteComment: $e');
+      _log('deleteComment error: $e');
       return false;
     }
   }
@@ -398,52 +476,85 @@ class ApiTaskRepository implements ITaskRepository {
   // ── JSON normaliser ───────────────────────────────────────────
 
   Map<String, dynamic> _norm(Map<String, dynamic> j) {
-    // Fix issue 3: supervisor name — try every possible field name
     final supervisorId =
         (j['supervisorId'] ?? j['createdById'] ?? '').toString();
+
+    // Determine who this task is "from".
+    // For tasks created by the supervisor, use the supervisor name.
+    // For submitted tasks shown to the supervisor, also check student fields.
     final fromName = _firstNonEmpty([
       j['from'],
       j['supervisorName'],
+      j['supervisorFullName'],
       j['createdByName'],
       j['assignedByName'],
+      j['createdBy'],
+      j['submittedByName'],
+      j['studentName'],
       j['fullName'],
+      j['userName'],
     ]) ??
         'Supervisor';
 
-    // Fix issue 2: assignedTo null → empty list (backend omits when "all")
-    final assignedTo =
-        _strList(j['assignedTo'] ?? j['assigned_to'] ?? j['members']);
-
-    // Fix issue 4: description — backend key might be 'desc' or 'body'
     final description = _firstNonEmpty([
       j['description'],
       j['desc'],
       j['body'],
       j['content'],
+      j['taskDescription'],
+    ]);
+
+    final assignedTo =
+        _strList(j['assignedTo'] ?? j['assigned_to'] ?? j['members']);
+
+    final dueDateStr = (j['dueDate'] ?? j['due_date'])?.toString() ??
+        DateTime.now().toIso8601String();
+
+    // supervisorAttachments: ONLY read the specific key.
+    // Do NOT fall back to the generic 'attachments' key because after a
+    // student submits, the backend may put the student files there and
+    // the doctor's original files would be lost.
+    final supAttach = _attachList(
+      j['supervisorAttachments'] ?? j['taskAttachments'],
+    );
+    // studentAttachments: after submit these may come under 'attachments'
+    // or 'submissions' if the specific key is absent.
+    final stuAttach = _attachList(
+      j['studentAttachments'] ?? j['submissions'] ?? j['attachments'],
+    );
+
+    final isCompleted = j['isCompleted'] ?? j['is_completed'] ?? false;
+
+    // Extract who submitted the task (student side)
+    final submittedByName = _firstNonEmpty([
+      j['submittedByName'],
+      j['studentName'],
+      j['submittedBy'],
+      j['submitterName'],
+      j['submitterFullName'],
     ]);
 
     return {
       'id': (j['id'] ?? j['taskId'] ?? '').toString(),
-      'title': j['title'] ?? '',
+      'title': (j['title'] ?? '').toString(),
       'from': fromName,
-      'dueDate': j['dueDate'] ??
-          j['due_date'] ??
-          DateTime.now().toIso8601String(),
+      'dueDate': dueDateStr,
       'teamId': (j['teamId'] ?? j['team_id'] ?? '').toString(),
       'supervisorId': supervisorId,
       'assignedTo': assignedTo,
       'description': description,
-      'supervisorAttachments':
-          _attachList(j['supervisorAttachments']),
-      'studentAttachments': _attachList(j['studentAttachments']),
-      'isCompleted':
-          j['isCompleted'] ?? j['is_completed'] ?? false,
+      'supervisorAttachments': supAttach,
+      'studentAttachments': stuAttach,
+      'isCompleted': isCompleted,
+      'submittedByName': submittedByName,
     };
   }
 
   String? _firstNonEmpty(List<dynamic> values) {
     for (final v in values) {
-      if (v != null && v.toString().trim().isNotEmpty) return v.toString();
+      if (v != null && v.toString().trim().isNotEmpty) {
+        return v.toString().trim();
+      }
     }
     return null;
   }
@@ -456,12 +567,13 @@ class ApiTaskRepository implements ITaskRepository {
 
   List<Map<String, String>>? _attachList(dynamic v) {
     if (v == null) return null;
+    if (v is List && v.isEmpty) return [];
     if (v is List) {
       return v.map<Map<String, String>>((e) {
         final m = e as Map<String, dynamic>;
         return {
-          'name': (m['name'] ?? '').toString(),
-          'type': (m['type'] ?? '').toString()
+          'name': (m['name'] ?? m['fileName'] ?? '').toString(),
+          'type': (m['type'] ?? m['fileType'] ?? 'file').toString(),
         };
       }).toList();
     }
@@ -472,10 +584,10 @@ class ApiTaskRepository implements ITaskRepository {
     final m = j as Map<String, dynamic>;
     return TeamTaskModel(
       id: (m['id'] ?? '').toString(),
-      title: m['title'] ?? '',
+      title: (m['title'] ?? '').toString(),
       assignedTo: _assignedDisplay(m['assignedTo']),
       dueDate: m['dueDate'] != null
-          ? DateTime.tryParse(m['dueDate']) ?? DateTime.now()
+          ? DateTime.tryParse(m['dueDate'].toString()) ?? DateTime.now()
           : DateTime.now(),
     );
   }
@@ -483,35 +595,42 @@ class ApiTaskRepository implements ITaskRepository {
   String _assignedDisplay(dynamic v) {
     if (v == null) return 'Team';
     if (v is List && v.isNotEmpty) {
-      if (v.first is Map) {
-        return (v.first as Map)['name']?.toString() ?? 'Member';
-      }
-      return v.length == 1
-          ? v.first.toString()
-          : '${v.length} members';
+      if (v.first is Map) return (v.first as Map)['name']?.toString() ?? 'Member';
+      return v.length == 1 ? v.first.toString() : '${v.length} members';
     }
     return v.toString();
   }
 
-  CommentModel _toComment(Map<String, dynamic> j, String taskId) =>
-      CommentModel(
-        id: (j['id'] ?? '').toString(),
-        taskId: taskId,
-        userId: (j['userId'] ?? j['user_id'] ?? '').toString(),
-        userName: j['userName'] ?? j['user_name'] ?? 'Unknown',
-        text: j['text'] ?? '',
-        createdAt: j['createdAt'] != null
-            ? DateTime.tryParse(j['createdAt'].toString()) ??
-                DateTime.now()
-            : DateTime.now(),
-      );
+  CommentModel _toComment(
+      Map<String, dynamic> j, String taskId, String userId, String userName) {
+    final rawName = j['userName'] ??
+        j['user_name'] ??
+        j['authorName'] ??
+        j['fullName'] ??
+        j['name'] ??
+        '';
+    final resolvedName =
+        (rawName.toString().isEmpty || rawName.toString() == 'Unknown')
+            ? userName
+            : rawName.toString();
+
+    return CommentModel(
+      id: (j['id'] ?? '').toString(),
+      taskId: taskId,
+      userId: (j['userId'] ?? j['user_id'] ?? userId).toString(),
+      userName: resolvedName,
+      text: (j['text'] ?? j['content'] ?? '').toString(),
+      createdAt: j['createdAt'] != null
+          ? DateTime.tryParse(j['createdAt'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
 }
 
 class ApiException implements Exception {
   final int statusCode;
   final String body;
   ApiException(this.statusCode, this.body);
-
   @override
   String toString() => 'ApiException($statusCode): $body';
 }

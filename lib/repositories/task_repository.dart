@@ -7,11 +7,13 @@ import 'package:onboard/models/TaskModels/comment_model.dart';
 import 'package:onboard/models/CommunityModels/post_model.dart';
 
 abstract class ITaskRepository {
-  // ✅ userId للطالب عشان يشوف تاسكاته بس
   Future<List<TaskModel>> getPendingTasks({String? userId});
   Future<List<CompletedTaskModel>> getCompletedTasks({String? userId});
   Future<List<TeamTaskModel>> getTeamTasks({String? teamId});
+
+  // ✅ Now real — fetches feedback from API
   Future<List<FeedbackModel>> getFeedbackForTask(String taskId);
+
   Future<List<CommentModel>> getCommentsForTask(String taskId);
   Future<CommentModel> addComment({
     required String taskId,
@@ -24,6 +26,8 @@ abstract class ITaskRepository {
     required List<String> filePaths,
   });
   Future<PostModel?> getLatestPost();
-  // ✅ للدكتور عشان يشوف التاسكات اللي هو عملها
   Future<List<TaskModel>> getTasksBySupervisor(String supervisorId);
+
+  // ✅ New: fetch single task with fresh data (attachments, description, etc.)
+  Future<TaskModel?> getTaskById(String taskId);
 }

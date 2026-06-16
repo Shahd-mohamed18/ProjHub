@@ -7,16 +7,21 @@ import 'package:onboard/models/TaskModels/completed_task_model.dart';
 class CompletedTaskCard extends StatelessWidget {
   final CompletedTaskModel task;
   final VoidCallback onViewFeedback;
+  /// Called when the student taps the card body to reopen TaskDetailsScreen.
+  final VoidCallback? onTap;
 
   const CompletedTaskCard({
     super.key,
     required this.task,
     required this.onViewFeedback,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -97,6 +102,7 @@ class CompletedTaskCard extends StatelessWidget {
           ),
         ],
       ),
+      ), // GestureDetector
     );
   }
 }

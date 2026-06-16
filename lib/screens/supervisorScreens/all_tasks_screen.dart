@@ -1,4 +1,9 @@
+
 // lib/screens/supervisor/all_tasks_screen.dart
+//
+// ✅ NEW: Delete task — trash icon on every task card (swipe or icon tap)
+//         Uses SupervisorTaskCubit.deleteTask() → DELETE /api/Tasks/{id}
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/auth/auth_cubit.dart';
@@ -18,9 +23,6 @@ class AllTasksScreen extends StatefulWidget {
 }
 
 class _AllTasksScreenState extends State<AllTasksScreen> {
-  // ✅ Fix: cubit is always created here with ApiTaskRepository
-  // so AllTasksScreen works regardless of how it is navigated to
-  // (from supervisor_home, from create_task, from anywhere).
   late final SupervisorTaskCubit _cubit;
 
   @override
@@ -47,6 +49,32 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
     _cubit.loadSupervisorData(supervisorId);
   }
 
+  // ── Delete confirmation ───────────────────────────────────────
+
+  void _confirmDeleteTask(BuildContext context, TaskModel task) {
+    showDialog(
+      context: context,
+      builder: (dlg) => AlertDialog(
+        title: const Text('Delete Task'),
+        content: Text('Delete "${task.title}"? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dlg),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dlg);
+              _cubit.deleteTask(task.id);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
@@ -65,7 +93,24 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
               ],
             ),
           ),
-          child: BlocBuilder<SupervisorTaskCubit, SupervisorTaskState>(
+          child: BlocConsumer<SupervisorTaskCubit, SupervisorTaskState>(
+            listener: (context, state) {
+              if (state is SupervisorTaskSuccess) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Task deleted successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } else if (state is SupervisorTaskError) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.message),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
             builder: (context, state) {
               if (state is SupervisorTaskLoading) {
                 return const Center(child: CircularProgressIndicator());
@@ -79,7 +124,8 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
                           size: 48, color: Colors.red),
                       const SizedBox(height: 16),
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 24),
                         child: Text(state.message,
                             textAlign: TextAlign.center),
                       ),
@@ -130,7 +176,6 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
                   ],
                 );
               }
-              // Initial state — show loading
               return const Center(child: CircularProgressIndicator());
             },
           ),
@@ -255,6 +300,8 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
     );
   }
 
+  // ── In Progress ───────────────────────────────────────────────
+
   Widget _buildInProgressSection(
       BuildContext context, SupervisorTasksLoaded state) {
     final tasks = state.inProgressTasks;
@@ -276,69 +323,128 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
     final teamName =
         teamList.isNotEmpty ? teamList.first.name : task.teamId;
 
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => BlocProvider.value(
-            value: _cubit,
-            child: TaskDetailsScreen(task: task),
+    return Dismissible(
+      key: Key('task_${task.id}'),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) async {
+        bool confirmed = false;
+        await showDialog(
+          context: context,
+          builder: (dlg) => AlertDialog(
+            title: const Text('Delete Task'),
+            content: Text('Delete "${task.title}"?'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  confirmed = false;
+                  Navigator.pop(dlg);
+                },
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  confirmed = true;
+                  Navigator.pop(dlg);
+                },
+                style:
+                    TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        );
+        return confirmed;
+      },
+      onDismissed: (_) => _cubit.deleteTask(task.id),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.red.shade400,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Icon(Icons.delete_outline,
+            color: Colors.white, size: 28),
+      ),
+      child: GestureDetector(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BlocProvider.value(
+              value: _cubit,
+              child: TaskDetailsScreen(task: task),
+            ),
           ),
         ),
-      ),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-          boxShadow: const [
-            BoxShadow(
-                color: Color(0x19000000),
-                blurRadius: 2,
-                offset: Offset(0, 1))
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                    child: Text(task.title,
-                        style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF101828)))),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(4)),
-                  child: Text(teamName,
-                      style: const TextStyle(
-                          fontSize: 10,
-                          color: Color(0xFF155DFC),
-                          fontWeight: FontWeight.w600)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(task.from,
-                style: const TextStyle(
-                    fontSize: 12, color: Color(0xFF4A5565))),
-            const SizedBox(height: 8),
-            Text('Due: ${task.formattedDueDate}',
-                style: const TextStyle(
-                    fontSize: 12, color: Color(0xFF4A5565))),
-          ],
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+            boxShadow: const [
+              BoxShadow(
+                  color: Color(0x19000000),
+                  blurRadius: 2,
+                  offset: Offset(0, 1))
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                      child: Text(task.title,
+                          style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF101828)))),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(4)),
+                        child: Text(teamName,
+                            style: const TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFF155DFC),
+                                fontWeight: FontWeight.w600)),
+                      ),
+                      const SizedBox(width: 8),
+                      // ✅ Delete icon
+                      GestureDetector(
+                        onTap: () =>
+                            _confirmDeleteTask(context, task),
+                        child: const Icon(Icons.delete_outline,
+                            color: Colors.redAccent, size: 20),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(task.from,
+                  style: const TextStyle(
+                      fontSize: 12, color: Color(0xFF4A5565))),
+              const SizedBox(height: 8),
+              Text('Due: ${task.formattedDueDate}',
+                  style: const TextStyle(
+                      fontSize: 12, color: Color(0xFF4A5565))),
+            ],
+          ),
         ),
       ),
     );
   }
+
+  // ── Completed ─────────────────────────────────────────────────
 
   Widget _buildCompletedSection(
       BuildContext context, SupervisorTasksLoaded state) {
@@ -361,118 +467,173 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
     final teamName =
         teamList.isNotEmpty ? teamList.first.name : task.teamId;
 
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => BlocProvider.value(
-            value: _cubit,
-            child: TaskDetailsScreen(task: task),
+    return Dismissible(
+      key: Key('done_${task.id}'),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) async {
+        bool confirmed = false;
+        await showDialog(
+          context: context,
+          builder: (dlg) => AlertDialog(
+            title: const Text('Delete Task'),
+            content: Text('Delete "${task.title}"?'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  confirmed = false;
+                  Navigator.pop(dlg);
+                },
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  confirmed = true;
+                  Navigator.pop(dlg);
+                },
+                style:
+                    TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        );
+        return confirmed;
+      },
+      onDismissed: (_) => _cubit.deleteTask(task.id),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.red.shade400,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Icon(Icons.delete_outline,
+            color: Colors.white, size: 28),
+      ),
+      child: GestureDetector(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BlocProvider.value(
+              value: _cubit,
+              child: TaskDetailsScreen(task: task),
+            ),
           ),
         ),
-      ),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-          boxShadow: const [
-            BoxShadow(
-                color: Color(0x19000000),
-                blurRadius: 2,
-                offset: Offset(0, 1))
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 20,
-                  height: 20,
-                  margin: const EdgeInsets.only(right: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4CAF50).withOpacity(0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.check,
-                      color: Color(0xFF4CAF50), size: 12),
-                ),
-                Expanded(
-                    child: Text(task.title,
-                        style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF101828)))),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(4)),
-                  child: Text(teamName,
-                      style: const TextStyle(
-                          fontSize: 10,
-                          color: Color(0xFF155DFC),
-                          fontWeight: FontWeight.w600)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.only(left: 28),
-              child: Text(task.from,
-                  style: const TextStyle(
-                      fontSize: 12, color: Color(0xFF4A5565))),
-            ),
-            const SizedBox(height: 4),
-            Padding(
-              padding: const EdgeInsets.only(left: 28),
-              child: Row(
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+            boxShadow: const [
+              BoxShadow(
+                  color: Color(0x19000000),
+                  blurRadius: 2,
+                  offset: Offset(0, 1))
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Expanded(
-                    child: RichText(
-                      text: TextSpan(
-                        style: const TextStyle(
-                            fontSize: 12, fontFamily: 'Arimo'),
-                        children: [
-                          const TextSpan(
-                              text: 'Completed: ',
-                              style: TextStyle(
-                                  color: Color(0xFF4A5565))),
-                          TextSpan(
-                              text:
-                                  '${task.formattedDueDate} • Approved',
-                              style: const TextStyle(
-                                  color: Color(0xFF00A63D))),
-                        ],
-                      ),
+                  Container(
+                    width: 20,
+                    height: 20,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color:
+                          const Color(0xFF4CAF50).withOpacity(0.2),
+                      shape: BoxShape.circle,
                     ),
+                    child: const Icon(Icons.check,
+                        color: Color(0xFF4CAF50), size: 12),
                   ),
-                  // ✅ Feedback button — passes cubit via BlocProvider.value
-                  GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => BlocProvider.value(
-                          value: _cubit,
-                          child: GiveFeedbackScreen(task: task),
-                        ),
-                      ),
-                    ),
-                    child: const Text('Feedback',
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF155CFB),
+                  Expanded(
+                      child: Text(task.title,
+                          style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF101828)))),
+                  // Team chip
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(4)),
+                    child: Text(teamName,
+                        style: const TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF155DFC),
                             fontWeight: FontWeight.w600)),
+                  ),
+                  const SizedBox(width: 8),
+                  // ✅ Delete icon
+                  GestureDetector(
+                    onTap: () =>
+                        _confirmDeleteTask(context, task),
+                    child: const Icon(Icons.delete_outline,
+                        color: Colors.redAccent, size: 20),
                   ),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.only(left: 28),
+                child: Text(task.from,
+                    style: const TextStyle(
+                        fontSize: 12, color: Color(0xFF4A5565))),
+              ),
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.only(left: 28),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                              fontSize: 12, fontFamily: 'Arimo'),
+                          children: [
+                            const TextSpan(
+                                text: 'Completed: ',
+                                style: TextStyle(
+                                    color: Color(0xFF4A5565))),
+                            TextSpan(
+                                text:
+                                    '${task.formattedDueDate} • Approved',
+                                style: const TextStyle(
+                                    color: Color(0xFF00A63D))),
+                          ],
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => BlocProvider.value(
+                            value: _cubit,
+                            child:
+                                GiveFeedbackScreen(task: task),
+                          ),
+                        ),
+                      ),
+                      child: const Text('Feedback',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF155CFB),
+                              fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

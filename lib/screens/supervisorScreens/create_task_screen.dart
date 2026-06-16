@@ -2,9 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:onboard/cubits/announcement/announcement_cubit.dart';
 import 'package:onboard/cubits/supervisor/supervisor_task_cubit.dart';
 import 'package:onboard/models/TeamModels/team_member.dart';
-import 'package:onboard/widgets/supervisor/task_type_selector.dart';
+import 'package:onboard/models/TeamModels/team_model.dart';
+import 'package:onboard/screens/supervisorScreens/create_post_screen.dart';
 import 'package:onboard/widgets/supervisor/assign_to_section.dart';
 import 'package:onboard/widgets/supervisor/task_title_field.dart';
 import 'package:onboard/widgets/supervisor/description_field.dart';
@@ -16,6 +18,8 @@ class CreateTaskScreen extends StatefulWidget {
   final String supervisorName; // ← real name for "from" field
   final String? teamId;
   final List<TeamMember> teamMembers;
+  /// Full team model — needed so the Post tab can create announcements.
+  final TeamModel? team;
 
   const CreateTaskScreen({
     super.key,
@@ -23,6 +27,7 @@ class CreateTaskScreen extends StatefulWidget {
     this.supervisorName = 'Supervisor',
     this.teamId,
     this.teamMembers = const [],
+    this.team,
   });
 
   @override
@@ -30,14 +35,11 @@ class CreateTaskScreen extends StatefulWidget {
 }
 
 class _CreateTaskScreenState extends State<CreateTaskScreen> {
-  bool _isTask = true;
   bool _assignToAll = true;
   late Map<String, bool> _selectedMembers;
 
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
-  final _postTitleController = TextEditingController();
-  final _postDescController = TextEditingController();
 
   DateTime? _selectedDate;
   List<PlatformFile> _selectedFiles = [];
@@ -55,8 +57,6 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   void dispose() {
     _titleController.dispose();
     _descController.dispose();
-    _postTitleController.dispose();
-    _postDescController.dispose();
     super.dispose();
   }
 
@@ -122,6 +122,12 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     print('📤 Calling createTask — title="${_titleController.text.trim()}" '
         'teamId=$teamId assignedTo=$assignedTo date=$_selectedDate');
 
+    final attachments = _selectedFiles.map((f) {
+      final name = f.name;
+      final type = name.contains('.') ? name.split('.').last : 'file';
+      return <String, String>{'name': name, 'type': type};
+    }).toList();
+
     context.read<SupervisorTaskCubit>().createTask(
           title: _titleController.text.trim(),
           description: _descController.text.trim(),
@@ -130,21 +136,9 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
           teamId: teamId,
           attachment:
               _selectedFiles.isNotEmpty ? _selectedFiles.first.name : null,
+          supervisorAttachments: attachments,
           supervisorName: widget.supervisorName,
         );
-  }
-
-  void _savePost() {
-    if (_postTitleController.text.trim().isEmpty) {
-      _snack('Please enter post title');
-      return;
-    }
-    if (_postDescController.text.trim().isEmpty) {
-      _snack('Please enter post description');
-      return;
-    }
-    _snack('Post published successfully!');
-    Navigator.pop(context);
   }
 
   void _snack(String msg) {
@@ -200,7 +194,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 20, vertical: 16),
-                  child: _isTask ? _buildTaskForm() : _buildPostForm(),
+                  child: _buildTaskForm(),
                 ),
               ),
             ],
@@ -232,7 +226,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
             ),
             const SizedBox(width: 16),
             Text(
-              _isTask ? 'Assign New Task' : 'Add Post',
+              'Assign New Task',
               style: const TextStyle(
                   fontSize: 24,
                   fontFamily: 'Roboto',
@@ -248,10 +242,8 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TaskTypeSelector(
-          isTask: _isTask,
-          onChanged: (v) => setState(() => _isTask = v),
-        ),
+        // Task / Post toggle — Post pushes to the real announcement screen
+        _buildTypeSelector(),
         const SizedBox(height: 24),
         AssignToSection(
           assignToAll: _assignToAll,
@@ -280,29 +272,68 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     );
   }
 
-  Widget _buildPostForm() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  /// Tab selector that navigates to CreatePostScreen when "Post" is tapped.
+  Widget _buildTypeSelector() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        TaskTypeSelector(
-          isTask: _isTask,
-          onChanged: (v) => setState(() => _isTask = v),
+        // Task chip — currently selected
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 33, vertical: 7),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: const Color(0xFF1E3A8A)),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: const [
+              BoxShadow(
+                  color: Color(0x3F000000),
+                  blurRadius: 4,
+                  offset: Offset(0, 4)),
+            ],
+          ),
+          child: const Text(
+            'Task',
+            style: TextStyle(fontSize: 14, fontFamily: 'Roboto'),
+          ),
         ),
-        const SizedBox(height: 24),
-        const Text('Post Title',
-            style: TextStyle(fontSize: 20, fontFamily: 'Roboto')),
-        const SizedBox(height: 8),
-        _buildTextField(_postTitleController, 'enter post title'),
-        const SizedBox(height: 24),
-        const Text('Description',
-            style: TextStyle(fontSize: 20, fontFamily: 'Roboto')),
-        const SizedBox(height: 8),
-        _buildTextField(_postDescController, 'describe your post',
-            maxLines: 4),
-        const SizedBox(height: 32),
-        _buildActionButtons(onSave: _savePost),
-        const SizedBox(height: 20),
+        const SizedBox(width: 16),
+        // Post chip — tapping navigates to the announcement screen
+        GestureDetector(
+          onTap: () => _navigateToPost(),
+          child: Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 34, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Text(
+              'Post',
+              style: TextStyle(fontSize: 14, fontFamily: 'Roboto'),
+            ),
+          ),
+        ),
       ],
+    );
+  }
+
+  void _navigateToPost() {
+    final team = widget.team;
+    if (team == null) {
+      _snack('Team info not available');
+      return;
+    }
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BlocProvider(
+          create: (_) => AnnouncementCubit(),
+          child: CreatePostScreen(
+            supervisorId: widget.supervisorId,
+            team: team,
+          ),
+        ),
+      ),
     );
   }
 

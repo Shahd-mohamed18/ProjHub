@@ -28,8 +28,7 @@ class SupervisorTaskCubit extends Cubit<SupervisorTaskState> {
       final teams =
           teamsState is TeamsLoaded ? teamsState.teams : <TeamModel>[];
 
-      final tasks =
-          await _taskRepository.getTasksBySupervisor(supervisorId);
+      final tasks = await _taskRepository.getTasksBySupervisor(supervisorId);
 
       emit(SupervisorTasksLoaded(
         teams: teams,
@@ -54,18 +53,15 @@ class SupervisorTaskCubit extends Cubit<SupervisorTaskState> {
 
   // ── create ────────────────────────────────────────────────────
 
-  /// Called from CreateTaskScreen.
-  ///
-  /// [teamId] is the String id from TeamModel — we parse it to int because
-  /// the backend CreateTaskDTO.teamId is int32.
   Future<void> createTask({
     required String title,
     required String description,
     required DateTime dueDate,
     required List<String> assignedTo,
     String? attachment,
+    List<Map<String, String>> supervisorAttachments = const [],
     required String teamId,
-    String supervisorName = 'Supervisor', // ← real name for "from" field
+    String supervisorName = 'Supervisor',
   }) async {
     final previousState = state;
     emit(SupervisorTaskLoading());
@@ -79,20 +75,18 @@ class SupervisorTaskCubit extends Cubit<SupervisorTaskState> {
           teamId: int.tryParse(teamId) ?? 0,
           assignedTo: assignedTo,
           supervisorName: supervisorName,
+          supervisorAttachments: supervisorAttachments,
         );
       } else {
-        // Mock path
         await Future.delayed(const Duration(seconds: 1));
       }
 
       emit(SupervisorTaskSuccess());
 
-      // Reload so AllTasksScreen reflects the new task
       if (_cachedSupervisorId != null) {
         await loadSupervisorData(_cachedSupervisorId!);
       }
     } catch (e) {
-      // Give a readable message for the common 403 case
       String msg = 'Failed to create task: $e';
       if (e is ApiException) {
         if (e.statusCode == 403) {
@@ -109,9 +103,44 @@ class SupervisorTaskCubit extends Cubit<SupervisorTaskState> {
     }
   }
 
+  // ── delete task ───────────────────────────────────────────────
+
+  /// DELETE /api/Tasks/{id}?supervisorId=
+  Future<void> deleteTask(String taskId) async {
+    final previousState = state;
+    try {
+      if (_taskRepository is ApiTaskRepository) {
+        final api = _taskRepository as ApiTaskRepository;
+        final ok = await api.deleteTask(taskId);
+        if (!ok) {
+          emit(SupervisorTaskError('Failed to delete task'));
+          if (previousState is SupervisorTasksLoaded) emit(previousState);
+          return;
+        }
+      }
+
+      // Remove task from local state immediately
+      if (previousState is SupervisorTasksLoaded) {
+        final updated = previousState.allTasks
+            .where((t) => t.id != taskId)
+            .toList();
+        emit(previousState.copyWith(allTasks: updated));
+      }
+
+      emit(SupervisorTaskSuccess());
+
+      // Reload to stay in sync with the backend
+      if (_cachedSupervisorId != null) {
+        await loadSupervisorData(_cachedSupervisorId!);
+      }
+    } catch (e) {
+      emit(SupervisorTaskError('Failed to delete task: $e'));
+      if (previousState is SupervisorTasksLoaded) emit(previousState);
+    }
+  }
+
   // ── feedback ──────────────────────────────────────────────────
 
-  /// POST /api/Tasks/{id}/feedback?supervisorId={uid}
   Future<void> giveFeedback({
     required String taskId,
     required String message,

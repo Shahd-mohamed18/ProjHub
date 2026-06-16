@@ -5,6 +5,7 @@ import 'package:onboard/cubits/teams/teams_cubit.dart';
 import 'package:onboard/cubits/teams/teams_state.dart';
 import 'package:onboard/models/TeamModels/team_model.dart';
 import 'package:onboard/models/user_model.dart';
+import 'package:onboard/repositories/api_task_repository.dart';
 import 'package:onboard/screens/supervisorScreens/all_members_screen.dart';
 import 'package:onboard/screens/supervisorScreens/all_tasks_screen.dart';
 import 'package:onboard/screens/supervisorScreens/all_teams_screen.dart';
@@ -13,8 +14,39 @@ import 'package:onboard/screens/supervisorScreens/team_details_screen.dart';
 
 import 'dart:io';
 
-class SupervisorHomeScreen extends StatelessWidget {
+class SupervisorHomeScreen extends StatefulWidget {
   const SupervisorHomeScreen({super.key});
+
+  @override
+  State<SupervisorHomeScreen> createState() => _SupervisorHomeScreenState();
+}
+
+class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
+  int _taskCount = 0;
+  bool _loadingTasks = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTaskCount();
+  }
+
+  Future<void> _loadTaskCount() async {
+    final authState = context.read<AuthCubit>().state;
+    final userId = authState.userModel?.uid ?? '';
+    if (userId.isEmpty) return;
+
+    setState(() => _loadingTasks = true);
+    try {
+      final tasks = await ApiTaskRepository().getTasksBySupervisor(userId);
+      setState(() {
+        _taskCount = tasks.length;
+        _loadingTasks = false;
+      });
+    } catch (e) {
+      setState(() => _loadingTasks = false);
+    }
+  }
 
   String _getGreeting(UserRole role, String name) {
     switch (role) {
@@ -173,9 +205,9 @@ class SupervisorHomeScreen extends StatelessWidget {
                       ),
                       const SizedBox(width: 12),
                     ],
-                    // ✅ Fix issue 5: real task count via SupervisorTaskCubit
+                    // ✅ Tasks stat card – shows real task count
                     Expanded(
-                      child: _buildTasksCard(context, userId),
+                      child: _buildTasksCard(context),
                     ),
                   ],
                 ),
@@ -258,14 +290,17 @@ class SupervisorHomeScreen extends StatelessWidget {
     );
   }
 
-  // ── Tasks stat card — navigates to AllTasksScreen which manages its own cubit
-  Widget _buildTasksCard(BuildContext context, String userId) {
+  // ── Tasks stat card — navigates to AllTasksScreen ──────────────
+  Widget _buildTasksCard(BuildContext context) {
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const AllTasksScreen()),
       ),
-      child: _buildStatCard('Tasks', '→'),
+      child: _buildStatCard(
+        'Tasks',
+        _loadingTasks ? '...' : _taskCount.toString(),
+      ),
     );
   }
 

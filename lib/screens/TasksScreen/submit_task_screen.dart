@@ -1,14 +1,23 @@
 // lib/screens/TasksScreen/submit_task_screen.dart
 //
-// Fix: removed inner BlocProvider — uses the TasksCubit from the parent
-// (TasksScreen) via context.read. This prevents "emit after close" because
-// we no longer create a new cubit that gets disposed on Navigator.pop().
+// ✅ Fix: SubmitTaskScreen now creates its OWN TasksCubit if none is found
+// in the tree. This prevents the "Could not find Provider" crash when
+// the screen is pushed from TaskDetailsScreen.
+//
+// The preferred flow is:
+//   TasksScreen (has _tasksCubit) → passes via BlocProvider.value to
+//   TaskDetailsScreen → passes via BlocProvider.value to SubmitTaskScreen.
+//
+// But as a safety net this screen wraps itself in a BlocProvider so it
+// always works regardless of the navigation context.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:onboard/cubits/tasks/tasks_cubit.dart';
 import 'package:onboard/cubits/tasks/tasks_state.dart';
 import 'package:onboard/models/TaskModels/task_model.dart';
+import 'package:onboard/repositories/api_task_repository.dart';
 
 class SubmitTaskScreen extends StatefulWidget {
   final TaskModel task;
@@ -49,8 +58,6 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
       return;
     }
 
-    // ✅ Fix: read the PARENT TasksCubit (from TasksScreen's BlocProvider).
-    //         Do NOT pop first — let BlocConsumer handle navigation on success.
     context.read<TasksCubit>().submitTask(
           taskId: widget.task.id,
           filePaths:
@@ -60,7 +67,31 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ No BlocProvider here — inherit from TasksScreen
+    // ✅ Check if TasksCubit already exists in the tree (passed from TasksScreen).
+    // If not, create a local one so the screen never crashes.
+    final existingCubit = _tryReadCubit(context);
+
+    if (existingCubit != null) {
+      return _buildContent(context);
+    }
+
+    // No parent cubit found — create one locally
+    return BlocProvider(
+      create: (_) => TasksCubit(ApiTaskRepository()),
+      child: Builder(builder: (ctx) => _buildContent(ctx)),
+    );
+  }
+
+  /// Safely tries to find an ancestor TasksCubit without throwing.
+  TasksCubit? _tryReadCubit(BuildContext context) {
+    try {
+      return context.read<TasksCubit>();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Widget _buildContent(BuildContext context) {
     return BlocConsumer<TasksCubit, TasksState>(
       listener: (context, state) {
         if (state is TaskSubmitted) {
@@ -70,8 +101,9 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
               backgroundColor: Colors.green,
             ),
           );
-          // Pop back to TaskDetailsScreen, then back to TasksScreen
-          Navigator.pop(context);
+          // Only pop SubmitTaskScreen — TaskDetailsScreen stays open and
+          // calls _loadFreshTask() in its .then() callback, so the student
+          // can still read comments and view feedback after submitting.
           Navigator.pop(context);
         }
         if (state is TaskSubmitError) {
@@ -172,9 +204,11 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
               style: const TextStyle(
                   fontSize: 18, fontWeight: FontWeight.w800)),
           const SizedBox(height: 6),
-          Text('From: ${widget.task.from}',
-              style:
-                  const TextStyle(fontSize: 15, color: Colors.grey)),
+          // ✅ Always show real supervisor name
+          Text(
+            'From: ${widget.task.from.isNotEmpty ? widget.task.from : "Supervisor"}',
+            style: const TextStyle(fontSize: 15, color: Colors.grey),
+          ),
           const SizedBox(height: 2),
           Text('Due ${widget.task.formattedDueDate}',
               style:
@@ -251,7 +285,8 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
   Widget _buildFileChip(int index, PlatformFile file) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
@@ -270,7 +305,8 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
           ),
           GestureDetector(
             onTap: () => _removeFile(index),
-            child: const Icon(Icons.close, size: 18, color: Colors.grey),
+            child:
+                const Icon(Icons.close, size: 18, color: Colors.grey),
           ),
         ],
       ),
@@ -284,7 +320,8 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
           child: SizedBox(
             height: 50,
             child: OutlinedButton(
-              onPressed: isSubmitting ? null : () => Navigator.pop(context),
+              onPressed:
+                  isSubmitting ? null : () => Navigator.pop(context),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.black87,
                 side: const BorderSide(color: Colors.grey),
@@ -320,7 +357,8 @@ class _SubmitTaskScreenState extends State<SubmitTaskScreen> {
                     )
                   : const Text('Submit',
                       style: TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.w500)),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w500)),
             ),
           ),
         ),

@@ -35,8 +35,8 @@ class _CommentSectionState extends State<CommentSection> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
-    // ✅ Fix: use real Firebase UID and real user name — not hardcoded strings
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    // ✅ Always use the real full name from AuthCubit
     final userName =
         context.read<AuthCubit>().state.userModel?.fullName ?? 'User';
 
@@ -48,6 +48,34 @@ class _CommentSectionState extends State<CommentSection> {
         );
 
     _controller.clear();
+  }
+
+  void _confirmDeleteComment(BuildContext context, CommentModel comment) {
+    showDialog(
+      context: context,
+      builder: (dlg) => AlertDialog(
+        title: const Text('Delete Comment'),
+        content: const Text('Are you sure you want to delete this comment?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dlg),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dlg);
+              final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+              context.read<CommentsCubit>().deleteComment(
+                    commentId: comment.id,
+                    userId: uid,
+                  );
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -81,6 +109,8 @@ class _CommentSectionState extends State<CommentSection> {
             }
 
             if (state is CommentsLoaded) {
+              final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+
               return Column(
                 children: [
                   if (state.comments.isEmpty)
@@ -94,7 +124,9 @@ class _CommentSectionState extends State<CommentSection> {
                       ),
                     )
                   else
-                    ...state.comments.map(_buildCommentItem),
+                    ...state.comments.map(
+                      (c) => _buildCommentItem(context, c, currentUid),
+                    ),
                   const SizedBox(height: 16),
                   _buildCommentInput(isSending: state.isSending),
                 ],
@@ -108,44 +140,77 @@ class _CommentSectionState extends State<CommentSection> {
     );
   }
 
-  Widget _buildCommentItem(CommentModel comment) {
+  Widget _buildCommentItem(
+      BuildContext context, CommentModel comment, String currentUid) {
+    // ✅ Resolve display name: never show "Unknown" or empty
+    final displayName = (comment.userName.isEmpty ||
+            comment.userName.toLowerCase() == 'unknown')
+        ? (comment.userId == currentUid
+            ? (context.read<AuthCubit>().state.userModel?.fullName ?? 'You')
+            : 'Team Member')
+        : comment.userName;
+
+    final isOwner = comment.userId == currentUid;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Avatar
           CircleAvatar(
             radius: 16,
-            backgroundColor: const Color(0xFFBFDBFE),
+            backgroundColor: isOwner
+                ? const Color(0xFFDBEAFE)
+                : const Color(0xFFBFDBFE),
             child: Text(
-              comment.initial,
-              style: const TextStyle(
+              displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF1D4ED8),
+                color:
+                    isOwner ? const Color(0xFF155DFC) : const Color(0xFF1D4ED8),
               ),
             ),
           ),
           const SizedBox(width: 12),
+
+          // Text content
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Text(
-                      comment.userName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
+                    Expanded(
+                      child: Text(
+                        isOwner ? 'You' : displayName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       comment.formattedTime,
-                      style: const TextStyle(
-                          fontSize: 12, color: Colors.grey),
+                      style:
+                          const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
+                    // ✅ Delete icon — only visible for the comment owner
+                    if (isOwner) ...[
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () =>
+                            _confirmDeleteComment(context, comment),
+                        child: const Icon(
+                          Icons.delete_outline,
+                          size: 16,
+                          color: Colors.redAccent,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -187,8 +252,7 @@ class _CommentSectionState extends State<CommentSection> {
                 ? const SizedBox(
                     width: 18,
                     height: 18,
-                    child:
-                        CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.send, color: Color(0xFF2196F3)),
           ),

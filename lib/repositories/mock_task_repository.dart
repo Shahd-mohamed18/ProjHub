@@ -7,7 +7,9 @@ import 'package:onboard/models/TaskModels/comment_model.dart';
 import 'package:onboard/models/CommunityModels/post_model.dart';
 import 'package:onboard/repositories/task_repository.dart';
 
+
 class MockTaskRepository implements ITaskRepository {
+
 
   // ✅ الطالب يشوف بس التاسكات المأسندة ليه
   @override
@@ -20,17 +22,20 @@ class MockTaskRepository implements ITaskRepository {
     return tasks.toList();
   }
 
+
   @override
   Future<List<CompletedTaskModel>> getCompletedTasks({String? userId}) async {
     await Future.delayed(const Duration(milliseconds: 500));
     return CompletedTaskModel.mockCompletedTasks;
   }
 
+
   @override
   Future<List<TeamTaskModel>> getTeamTasks({String? teamId}) async {
     await Future.delayed(const Duration(milliseconds: 300));
     return TeamTaskModel.mockTeamTasks;
   }
+
 
   // ✅ الدكتور يشوف كل التاسكات اللي هو عملها
   @override
@@ -40,6 +45,7 @@ class MockTaskRepository implements ITaskRepository {
     return TaskModel.mockTasks;
   }
 
+
   @override
   Future<List<FeedbackModel>> getFeedbackForTask(String taskId) async {
     await Future.delayed(const Duration(milliseconds: 300));
@@ -48,11 +54,13 @@ class MockTaskRepository implements ITaskRepository {
         .toList();
   }
 
+
   @override
   Future<List<CommentModel>> getCommentsForTask(String taskId) async {
     await Future.delayed(const Duration(milliseconds: 300));
     return CommentModel.mockCommentsForTask(taskId);
   }
+
 
   @override
   Future<CommentModel> addComment({
@@ -72,6 +80,7 @@ class MockTaskRepository implements ITaskRepository {
     );
   }
 
+
   // ✅ لما الطالب يرفع - التاسك بيتحرك من pending لـ completed
   @override
   Future<bool> submitTask({
@@ -83,9 +92,24 @@ class MockTaskRepository implements ITaskRepository {
     return true;
   }
 
+
   @override
   Future<PostModel?> getLatestPost() async {
     await Future.delayed(const Duration(milliseconds: 300));
     return null;
+  }
+
+
+  // ✅ New: fetch single task with fresh data
+  @override
+  Future<TaskModel?> getTaskById(String taskId) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    try {
+      return TaskModel.mockTasks
+          .firstWhere((task) => task.id == taskId);
+    } catch (e) {
+      return null;
+    }
   }
 }
