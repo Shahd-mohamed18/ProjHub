@@ -1,4 +1,4 @@
-
+// lib/screens/teams/create_team_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/auth/auth_cubit.dart';
@@ -21,7 +21,6 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
   String _currentSearchQuery = '';
   bool _showAssistants = true;
   
-  // نحتفظ بالـ cubit كـ variable عشان نستخدمه في dispose
   late CreateTeamCubit _cubit;
 
   @override
@@ -44,7 +43,6 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
     _projectNameController.dispose();
     _descriptionController.dispose();
     _searchController.dispose();
-    // استخدام _cubit بدل context.read
     _cubit.reset();
     super.dispose();
   }
@@ -54,8 +52,8 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
     return BlocConsumer<CreateTeamCubit, CreateTeamState>(
       listener: (context, state) {
         if (state is TeamCreated) {
-          // الفريق اتعمل بنجاح - هنستخدم createdTeam من الكيوبت
           if (_cubit.createdTeam != null && mounted) {
+            print('✅ Returning team with ID: ${_cubit.createdTeam!.id}');
             Navigator.pop(context, _cubit.createdTeam);
           }
         } else if (state is CreateTeamError) {
@@ -64,6 +62,17 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
               content: Text(state.message),
               backgroundColor: Colors.red,
               behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
+              margin: const EdgeInsets.all(16),
+            ),
+          );
+        } else if (state is CreateTeamWarning) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Colors.orange.shade700,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
               margin: const EdgeInsets.all(16),
             ),
           );
@@ -135,6 +144,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
                             const SizedBox(height: 20),
                             _buildToggleTabs(),
                             const SizedBox(height: 16),
+                            
                             _buildResultsList(state),
                             const SizedBox(height: 30),
                             _buildSelectedCounts(),
@@ -281,7 +291,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
       }
 
       return Container(
-        constraints: const BoxConstraints(maxHeight: 200),
+        constraints: const BoxConstraints(maxHeight: 250),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(8),
@@ -292,10 +302,14 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
           separatorBuilder: (_, __) => const Divider(height: 1),
           itemBuilder: (context, index) {
             final item = items[index];
+            
             return CheckboxListTile(
               title: Text(
                 item.name,
-                style: const TextStyle(fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black,
+                ),
               ),
               subtitle: Text(item.displayRole),
               value: item.isSelected,
@@ -386,15 +400,16 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
               child: OutlinedButton(
                 onPressed: () => Navigator.pop(context),
                 style: OutlinedButton.styleFrom(
+                  backgroundColor:Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: const BorderSide(color: Colors.grey),
+                  side: const BorderSide(color: Colors.blueAccent),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
                 child: const Text(
                   'Cancel',
-                  style: TextStyle(fontSize: 16),
+                  style: TextStyle(fontSize: 16 ,color:Colors.black),
                 ),
               ),
             ),

@@ -1,3 +1,4 @@
+// lib/cubits/teams/teams_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/teams/teams_state.dart';
 import 'package:onboard/models/TeamModels/team_model.dart';
@@ -14,7 +15,6 @@ class TeamsCubit extends Cubit<TeamsState> {
 
   final List<TeamModel> _teams = [];
 
-  
   void loadTeamsForUser(String userId, UserRole userRole) {
     emit(TeamsLoading());
 
@@ -59,13 +59,19 @@ class TeamsCubit extends Cubit<TeamsState> {
     }
   }
 
-  
   void addTeam(TeamModel team) {
-    print('---------- Adding team: ${team.name}');
-    _teams.add(team);
+    print('---------- Adding team: ${team.name} (ID: ${team.id})');
+    
+    final existingIndex = _teams.indexWhere((t) => t.id == team.id);
+    if (existingIndex != -1) {
+      print('---------- Team already exists, updating instead');
+      _teams[existingIndex] = team;
+    } else {
+      _teams.add(team);
+    }
+    
     emit(TeamsLoaded(teams: List.from(_teams)));
   }
-
 
   Future<bool> deleteTeam(String teamId) async {
     try {
@@ -91,7 +97,6 @@ class TeamsCubit extends Cubit<TeamsState> {
     }
   }
 
-
   void updateTeam(TeamModel updatedTeam) {
     final index = _teams.indexWhere((team) => team.id == updatedTeam.id);
     if (index != -1) {
@@ -100,24 +105,42 @@ class TeamsCubit extends Cubit<TeamsState> {
     }
   }
 
-  
-  Future<bool> addMembersToTeam({
+ 
+
+    Future<bool> addMembersToTeam({
     required String teamId,
     required List<TeamMember> newMembers,
   }) async {
     try {
       print('---------- Adding ${newMembers.length} members to team: $teamId');
-
-    
-      final memberIds = newMembers.map((m) => m.id).toList();
-
       
-      final success = await _teamApiService.addMembersToTeam(
+      final memberIds = newMembers.map((m) => m.id).toList();
+      
+      final result = await _teamApiService.addMembersToTeamWithResponse(
         teamId: teamId,
         memberIds: memberIds,
       );
-
+      
+      final success = result['success'] ?? false;
+      final warning = result['warning'];
+      final message = result['message'];
+      
       if (success) {
+        // ✅ التحقق من أنه تمت إضافة أعضاء فعلاً
+        if (message != null && message.contains('Added 0 members')) {
+          print('⚠️ No members were added: $message');
+          emit(TeamMembersAddWarning(warning: message));
+          return false;
+        }
+        
+        if (warning != null && warning.isNotEmpty) {
+          print('⚠️ Warning from backend: $warning');
+          emit(TeamMembersAddWarning(warning: warning));
+          return false;
+        }
+        
+        // ✅ فقط هنا نحدث الـ UI المحلي (بعد التأكد من نجاح الإضافة)
+        print('✅ Members added successfully');
         
         final teamIndex = _teams.indexWhere((team) => team.id == teamId);
         if (teamIndex != -1) {
@@ -125,10 +148,10 @@ class TeamsCubit extends Cubit<TeamsState> {
             members: [..._teams[teamIndex].members, ...newMembers],
           );
           _teams[teamIndex] = updatedTeam;
+          emit(TeamsLoaded(teams: List.from(_teams)));
+          print('---------- Local state updated');
         }
-
-        emit(TeamsLoaded(teams: List.from(_teams)));
-        print('---------- Members added successfully and local state updated');
+        
         return true;
       } else {
         print('---------- Failed to add members to backend');
@@ -140,9 +163,6 @@ class TeamsCubit extends Cubit<TeamsState> {
     }
   }
 
-
-  
-  
   Future<List<TeamMember>> getStudentsFromFirebase() async {
     try {
       print('---------- Fetching all users from Firebase...');
@@ -175,7 +195,6 @@ class TeamsCubit extends Cubit<TeamsState> {
     }
   }
 
-  // Mock data
   List<TeamModel> _getMockTeamsForSupervisor(String supervisorId) {
     return [
       TeamModel(
@@ -193,7 +212,6 @@ class TeamsCubit extends Cubit<TeamsState> {
             position: 'Teaching Assistant',
             photoUrl: '',
           ),
-          
         ],
         members: [
           TeamMember(
@@ -250,7 +268,6 @@ class TeamsCubit extends Cubit<TeamsState> {
             position: 'Teaching Assistant',
             photoUrl: '',
           ),
-          
         ],
         members: [
           TeamMember(

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:onboard/core/Theme/app_theme.dart';
+import '../../core/Theme/app_theme.dart';
 import '../../services/ai_service.dart';
-
 import 'scenario1_screen.dart';
 import 'scenario2_screen.dart';
 
@@ -23,26 +21,38 @@ class _AIScreenState extends State<AIScreen> with SingleTickerProviderStateMixin
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    
+    // ✅ استخدام الـ URL الجديد من صديقتك
     _aiService = ProjHubAIService(
       baseUrl: "https://aya3330-projhub-ai.hf.space",
     );
-    _checkHealth();
+    
+    _initializeService();
   }
 
-  Future<void> _checkHealth() async {
+  Future<void> _initializeService() async {
     try {
-      final isHealthy = await _aiService.isHealthy();
+      // ✅ نجرب الـ health check بدل meta
+      final isHealthy = await _aiService.healthCheck();
       if (!mounted) return;
-      if (!isHealthy) {
-        setState(() => _error = "AI service is currently unavailable");
+      
+      if (isHealthy) {
+        setState(() {
+          _isLoading = false;
+          _error = null;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+          _error = "AI Service is not responding. Please try again later.";
+        });
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = "Failed to connect to AI service: $e");
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      setState(() {
+        _isLoading = false;
+        _error = "Failed to connect to AI service: $e";
+      });
     }
   }
 
@@ -94,7 +104,7 @@ class _AIScreenState extends State<AIScreen> with SingleTickerProviderStateMixin
                             setState(() {
                               _isLoading = true;
                               _error = null;
-                              _checkHealth();
+                              _initializeService();
                             });
                           },
                           style: ElevatedButton.styleFrom(

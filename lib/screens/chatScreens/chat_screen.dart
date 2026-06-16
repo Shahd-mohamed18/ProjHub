@@ -36,6 +36,9 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _getCurrentUser();
+
+
+    context.read<ChatCubit>().setCurrentChatUser(widget.otherUserId);
   }
 
   void _getCurrentUser() {
@@ -52,6 +55,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+     context.read<ChatCubit>().setCurrentChatUser(null);
     super.dispose();
   }
 

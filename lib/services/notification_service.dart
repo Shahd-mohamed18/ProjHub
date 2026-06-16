@@ -1,111 +1,24 @@
-// // lib/services/notification_service.dart
-// import 'package:firebase_messaging/firebase_messaging.dart';
-// import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:flutter/material.dart';
-// import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-
-// class NotificationService {
-//   static final FirebaseMessaging _fcm = FirebaseMessaging.instance;
-//   static final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
-
-//   static Future<void> initialize(String currentUserId) async {
-//     // 1. طلب الإذن من المستخدم
-//     NotificationSettings settings = await _fcm.requestPermission(
-//       alert: true,
-//       badge: true,
-//       sound: true,
-//     );
-
-//     if (settings.authorizationStatus != AuthorizationStatus.authorized) {
-//       print('⚠️ User declined notification permission');
-//       return;
-//     }
-
-//     // 2. تهيئة الإشعارات المحلية
-//     const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-//     const DarwinInitializationSettings iosSettings = DarwinInitializationSettings();
-//     const InitializationSettings initSettings = InitializationSettings(
-//       android: androidSettings,
-//       iOS: iosSettings,
-//     );
-
-//     await _localNotifications.initialize(
-//       settings: initSettings,
-//       onDidReceiveNotificationResponse: _onNotificationTap,
-//     );
-
-//     // 3. حفظ التوكن
-//     await _saveTokenToFirestore(currentUserId);
-
-//     // 4. استماع للإشعارات
-//     FirebaseMessaging.onMessage.listen(_showLocalNotification);
-//     FirebaseMessaging.onMessageOpenedApp.listen(_handleMessage);
-    
-//     // 5. معالجة الإشعار اللي فتح التطبيق
-//     RemoteMessage? initialMessage = await FirebaseMessaging.instance.getInitialMessage();
-//     if (initialMessage != null) {
-//       _handleMessage(initialMessage);
-//     }
-//   }
-
-//   static Future<void> _saveTokenToFirestore(String userId) async {
-//     try {
-//       String? token = await _fcm.getToken();
-//       if (token != null) {
-//         await FirebaseFirestore.instance.collection('users').doc(userId).update({
-//           'fcmToken': token,
-//         });
-//         print('✅ FCM Token saved for: $userId');
-//       }
-//     } catch (e) {
-//       print('❌ Error saving token: $e');
-//     }
-//   }
-
-//   static void _showLocalNotification(RemoteMessage message) {
-//     final notification = message.notification;
-//     if (notification == null) return;
-
-//     _localNotifications.show(
-//       id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
-//       title: notification.title,
-//       body: notification.body,
-//       notificationDetails: NotificationDetails(
-//         android: AndroidNotificationDetails(
-//           'chat_channel',
-//           'Chat Notifications',
-//           channelDescription: 'Notifications for new messages',
-//           importance: Importance.high,
-//           priority: Priority.high,
-//         ),
-//         iOS: const DarwinNotificationDetails(),
-//       ),
-//       payload: message.data['senderId'],
-//     );
-//   }
-
-//   static void _handleMessage(RemoteMessage message) {
-//     final senderId = message.data['senderId'];
-//     final senderName = message.data['senderName'];
-//     print('📱 Open chat with: $senderName ($senderId)');
-//     // هنا تضيفي التنقل لشاشة المحادثة
-//   }
-
-//   static void _onNotificationTap(NotificationResponse response) {
-//     final payload = response.payload;
-//     if (payload != null) {
-//       print('📱 Tapped notification for user: $payload');
-//       // التنقل هنا
-//     }
-//   }
-// }
-
-// lib/services/notification_service.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  
+  // متغير لتخزين callback للتنقل عند الضغط على الإشعار
+  static Function(String)? onNotificationTap;
+
+  // طلب إذن الإشعارات
+  static Future<void> requestPermission() async {
+    if (Platform.isAndroid) {
+      final androidPlugin = _localNotifications.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+      >();
+      
+      final bool? granted = await androidPlugin?.requestNotificationsPermission();
+      print('📱 Notification permission granted: $granted');
+    }
+  }
 
   // تهيئة خدمة الإشعارات
   static Future<void> initialize() async {
@@ -128,6 +41,20 @@ class NotificationService {
       settings: initSettings,
       onDidReceiveNotificationResponse: _onNotificationTap,
     );
+    
+    // ✅ إنشاء قناة الإشعارات (لأندرويد 8+)
+    if (Platform.isAndroid) {
+      const AndroidNotificationChannel channel = AndroidNotificationChannel(
+        'chat_channel',
+        'Chat Notifications',
+        description: 'إشعارات الرسائل الجديدة',
+        importance: Importance.high,
+        // ✅ تم إزالة priority لأنها مش موجودة في الإصدارات الجديدة
+      );
+      
+      await _localNotifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(channel);
+    }
   }
 
   // عرض إشعار محلي
@@ -142,7 +69,8 @@ class NotificationService {
       'Chat Notifications',
       channelDescription: 'إشعارات الرسائل الجديدة',
       importance: Importance.high,
-      priority: Priority.high,
+      // ✅ تم إزالة priority لأنها مش موجودة في الإصدارات الجديدة
+      playSound: true,
       sound: RawResourceAndroidNotificationSound('default'),
     );
 
@@ -169,9 +97,15 @@ class NotificationService {
   // معالجة الضغط على الإشعار
   static void _onNotificationTap(NotificationResponse response) {
     final String? payload = response.payload;
-    if (payload != null) {
-      print('📱 User tapped notification: $payload');
-      // هنا ممكن تضيفي منطق للتنقل لشاشة المحادثة
+    print('📱 User tapped notification: $payload');
+    
+    if (onNotificationTap != null && payload != null) {
+      onNotificationTap!(payload);
     }
+  }
+  
+  // تسجيل callback للتنقل
+  static void setOnNotificationTap(Function(String) callback) {
+    onNotificationTap = callback;
   }
 }

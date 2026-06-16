@@ -1,3 +1,5 @@
+
+// lib/screens/supervisorScreens/supervisor_home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/auth/auth_cubit.dart';
@@ -10,6 +12,7 @@ import 'package:onboard/screens/supervisorScreens/all_tasks_screen.dart';
 import 'package:onboard/screens/supervisorScreens/all_teams_screen.dart';
 import 'package:onboard/screens/supervisorScreens/supervisor_projects_screen.dart';
 import 'package:onboard/screens/supervisorScreens/team_details_screen.dart';
+
 
 import 'dart:io';
 
@@ -27,6 +30,13 @@ class SupervisorHomeScreen extends StatelessWidget {
     }
   }
 
+  // ✅ دالة لإعادة تحميل الفرق
+  void _reloadTeams(BuildContext context, String userId, UserRole userRole) {
+    if (userId.isNotEmpty) {
+      context.read<TeamsCubit>().loadTeamsForUser(userId, userRole);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = context.watch<AuthCubit>().state;
@@ -39,9 +49,10 @@ class SupervisorHomeScreen extends StatelessWidget {
     final userPhoto = user?.photoUrl;
     final userId = user?.uid ?? '';
 
+    // تحميل الفرق عند فتح الصفحة
     if (teamsState is TeamsInitial && userId.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        context.read<TeamsCubit>().loadTeamsForUser(userId, userRole);
+        _reloadTeams(context, userId, userRole);
       });
     }
 
@@ -119,8 +130,13 @@ class SupervisorHomeScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const Icon(Icons.notification_add_outlined,
-                        size: 28, color: Colors.black),
+                    GestureDetector(
+                      onTap: () async {
+                        // ✅ عند الضغط على زر الإشعارات
+                      },
+                      child: const Icon(Icons.notification_add_outlined,
+                          size: 28, color: Colors.black),
+                    ),
                   ],
                 ),
               ),
@@ -134,46 +150,51 @@ class SupervisorHomeScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) =>
-                                  AllTeamsScreen(userRole: userRole)),
-                        ),
-                        child:
-                            _buildStatCard('Teams', teamsCount.toString()),
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    AllTeamsScreen(userRole: userRole)),
+                          );
+                          _reloadTeams(context, userId, userRole);
+                        },
+                        child: _buildStatCard('Teams', teamsCount.toString()),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) =>
-                                  const SupervisorProjectsScreen()),
-                        ),
-                        child: _buildStatCard(
-                            'Projects', projectsCount.toString()),
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    const SupervisorProjectsScreen()),
+                          );
+                          _reloadTeams(context, userId, userRole);
+                        },
+                        child: _buildStatCard('Projects', projectsCount.toString()),
                       ),
                     ),
                     const SizedBox(width: 12),
                     if (isSupervisor) ...[
                       Expanded(
                         child: GestureDetector(
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) =>
-                                    AllMembersScreen(teams: teams)),
-                          ),
-                          child: _buildStatCard(
-                              'Members', membersCount.toString()),
+                          onTap: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) =>
+                                      AllMembersScreen(teams: teams)),
+                            );
+                            _reloadTeams(context, userId, userRole);
+                          },
+                          child: _buildStatCard('Members', membersCount.toString()),
                         ),
                       ),
                       const SizedBox(width: 12),
                     ],
-                    // ✅ Fix issue 5: real task count via SupervisorTaskCubit
                     Expanded(
                       child: _buildTasksCard(context, userId),
                     ),
@@ -201,12 +222,15 @@ class SupervisorHomeScreen extends StatelessWidget {
                               fontWeight: FontWeight.w600),
                         ),
                         GestureDetector(
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) =>
-                                    AllTeamsScreen(userRole: userRole)),
-                          ),
+                          onTap: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) =>
+                                      AllTeamsScreen(userRole: userRole)),
+                            );
+                            _reloadTeams(context, userId, userRole);
+                          },
                           child: const Text(
                             'View All',
                             style: TextStyle(
@@ -230,19 +254,21 @@ class SupervisorHomeScreen extends StatelessWidget {
                         (team) => Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: GestureDetector(
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => TeamDetailsScreen(
-                                  team: team,
-                                  userRole: userRole,
+                            onTap: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => TeamDetailsScreen(
+                                    team: team,
+                                    userRole: userRole,
+                                  ),
                                 ),
-                              ),
-                            ),
+                              );
+                              _reloadTeams(context, userId, userRole);
+                            },
                             child: _buildTeamCard(
                               teamName: team.name,
-                              projectName:
-                                  team.projectName ?? 'No Project',
+                              projectName: team.projectName ?? 'No Project',
                             ),
                           ),
                         ),
@@ -258,7 +284,6 @@ class SupervisorHomeScreen extends StatelessWidget {
     );
   }
 
-  // ── Tasks stat card — navigates to AllTasksScreen which manages its own cubit
   Widget _buildTasksCard(BuildContext context, String userId) {
     return GestureDetector(
       onTap: () => Navigator.push(

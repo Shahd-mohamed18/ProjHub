@@ -1,4 +1,3 @@
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -23,8 +22,28 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   late TextEditingController _tagsController;
-  late TextEditingController _categoryController;
   late TextEditingController _githubController;
+  
+  // متغير منفصل للـ category بدلاً من TextEditingController
+  late String _selectedCategory;
+  
+  // قائمة التصنيفات (نفس القائمة المستخدمة في AddProjectScreen)
+  final List<String> _categories = [
+    'E-Commerce',
+    'Education',
+    'Sport',
+    'Tourism',
+    'Disability',
+    'Agriculture',
+    'Medical',
+    'Healthcare',
+    'Finance',
+    'Transportation',
+    'Lifestyle',
+    'Social',
+    'Business',
+    'Environment',
+  ];
 
   File? _newCoverPhoto;
   List<File> _newImages = [];
@@ -41,14 +60,21 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
     super.initState();
     _initializeControllers();
     _initializeImages();
+    // تهيئة التصنيف المختار من المشروع الحالي
+    _selectedCategory = widget.project.category;
   }
 
   void _initializeControllers() {
     _titleController = TextEditingController(text: widget.project.title);
-    _descriptionController = TextEditingController(text: widget.project.description);
-    _tagsController = TextEditingController(text: widget.project.tags.join(', '));
-    _categoryController = TextEditingController(text: widget.project.category);
-    _githubController = TextEditingController(text: widget.project.githubUrl ?? '');
+    _descriptionController = TextEditingController(
+      text: widget.project.description,
+    );
+    _tagsController = TextEditingController(
+      text: widget.project.tags.join(', '),
+    );
+    _githubController = TextEditingController(
+      text: widget.project.githubUrl ?? '',
+    );
   }
 
   void _initializeImages() {
@@ -124,8 +150,9 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
   }
 
   void _showSnackBar(String message, Color color) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: color),
+      SnackBar(content: Text(message), backgroundColor: color)
     );
   }
 
@@ -141,32 +168,24 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
       }
 
       List<String> finalImageUrls = [];
-      
-      
+
       finalImageUrls.addAll(_existingImages);
-      
-      
-    
+
       for (File image in _newImages) {
-        
         finalImageUrls.add(image.path);
       }
-      
-      
+
       String finalDocumentUrl = widget.project.documentUrl;
       if (_newDocument != null) {
-        
         finalDocumentUrl = _newDocument!.path;
       }
-      
-      
+
       List<String> tags = _tagsController.text
           .split(',')
           .map((tag) => tag.trim())
           .where((tag) => tag.isNotEmpty)
           .toList();
-      
-      
+
       final updatedProject = Project(
         id: widget.project.id,
         title: _titleController.text.trim(),
@@ -175,23 +194,24 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
         authorName: widget.project.authorName,
         images: finalImageUrls,
         tags: tags.isEmpty ? ['General'] : tags,
-        category: _categoryController.text,
+        category: _selectedCategory,  // استخدام المتغير المنفصل هنا
         documentUrl: finalDocumentUrl,
-        githubUrl: _githubController.text.trim().isNotEmpty 
-            ? _githubController.text.trim() 
+        githubUrl: _githubController.text.trim().isNotEmpty
+            ? _githubController.text.trim()
             : null,
         createdAt: widget.project.createdAt,
       );
-      
-      // 6. التحديث في Firebase
+
       await context.read<ProjectCubit>().updateProject(updatedProject);
-      
+
       if (mounted) {
         Navigator.pop(context, true);
         _showSnackBar('Project updated successfully!', Colors.green);
       }
     } catch (e) {
-      _showSnackBar('Error updating project: $e', Colors.red);
+      if (mounted) {
+        _showSnackBar('Error updating project: $e', Colors.red);
+      }
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
@@ -250,7 +270,13 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Cover Photo Section
-                      const Text('Cover Photo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Cover Photo',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       GestureDetector(
                         onTap: _pickNewCoverImage,
@@ -274,9 +300,18 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                               ? Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.cloud_upload, size: 50, color: Colors.grey.shade400),
+                                    Icon(
+                                      Icons.cloud_upload,
+                                      size: 50,
+                                      color: Colors.grey.shade400,
+                                    ),
                                     const SizedBox(height: 8),
-                                    Text('Tap to change cover image', style: TextStyle(color: Colors.grey.shade600)),
+                                    Text(
+                                      'Tap to change cover image',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
                                   ],
                                 )
                               : Stack(
@@ -285,12 +320,21 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                                       top: 12,
                                       left: 12,
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: Colors.blue.withOpacity(0.8),
                                           borderRadius: BorderRadius.circular(20),
                                         ),
-                                        child: const Text('Cover', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                        child: const Text(
+                                          'Cover',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                     Positioned(
@@ -300,8 +344,15 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                                         onTap: _pickNewCoverImage,
                                         child: Container(
                                           padding: const EdgeInsets.all(8),
-                                          decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                                          child: const Icon(Icons.edit, size: 20, color: Colors.blue),
+                                          decoration: const BoxDecoration(
+                                            color: Colors.white,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.edit,
+                                            size: 20,
+                                            color: Colors.blue,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -313,7 +364,13 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
 
                       // Existing Images
                       if (_existingImages.isNotEmpty) ...[
-                        const Text('Existing Images', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        const Text(
+                          'Existing Images',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         SizedBox(
                           height: 100,
@@ -342,8 +399,15 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                                       onTap: () => _removeExistingImage(index),
                                       child: Container(
                                         padding: const EdgeInsets.all(4),
-                                        decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                                        child: const Icon(Icons.close, size: 14, color: Colors.white),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.red,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.close,
+                                          size: 14,
+                                          color: Colors.white,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -357,7 +421,13 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
 
                       // New Images
                       if (_newImages.isNotEmpty) ...[
-                        const Text('New Images', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        const Text(
+                          'New Images',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         SizedBox(
                           height: 100,
@@ -386,8 +456,15 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                                       onTap: () => _removeNewImage(index),
                                       child: Container(
                                         padding: const EdgeInsets.all(4),
-                                        decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                                        child: const Icon(Icons.close, size: 14, color: Colors.white),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.red,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.close,
+                                          size: 14,
+                                          color: Colors.white,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -412,13 +489,21 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                       const SizedBox(height: 24),
 
                       // Title
-                      const Text('Project Title *', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Project Title *',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _titleController,
                         decoration: InputDecoration(
                           hintText: 'Enter project name',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           fillColor: Colors.white,
                           filled: true,
                         ),
@@ -427,14 +512,22 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                       const SizedBox(height: 20),
 
                       // Description
-                      const Text('Description *', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Description *',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _descriptionController,
                         maxLines: 4,
                         decoration: InputDecoration(
                           hintText: 'Describe your project',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           fillColor: Colors.white,
                           filled: true,
                         ),
@@ -443,53 +536,85 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                       const SizedBox(height: 20),
 
                       // Tags
-                      const Text('Tags', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Tags',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _tagsController,
                         decoration: InputDecoration(
                           hintText: 'Flutter, AI, Mobile (comma separated)',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           fillColor: Colors.white,
                           filled: true,
                         ),
                       ),
                       const SizedBox(height: 20),
 
-                      // Category
-                      const Text('Category *', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      // Category - المعدل
+                      const Text(
+                        'Category *',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        value: _categoryController.text.isEmpty ? null : _categoryController.text,
+                        value: _selectedCategory,
                         hint: const Text('Select category'),
-                        items: const [
-                          DropdownMenuItem(value: 'E-Commerce', child: Text('E-Commerce')),
-                          DropdownMenuItem(value: 'Education', child: Text('Education')),
-                          DropdownMenuItem(value: 'Sport', child: Text('Sport')),
-                          DropdownMenuItem(value: 'Tourism', child: Text('Tourism')),
-                          DropdownMenuItem(value: 'Disability', child: Text('Disability')),
-                          DropdownMenuItem(value: 'Agriculture', child: Text('Agriculture')),
-                          DropdownMenuItem(value: 'Medical', child: Text('Medical')),
-                        ],
-                        onChanged: (value) => setState(() => _categoryController.text = value ?? ''),
+                        items: _categories.map((category) {
+                          return DropdownMenuItem<String>(
+                            value: category,
+                            child: Text(category),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            if (value != null) {
+                              _selectedCategory = value;
+                            }
+                          });
+                        },
                         decoration: InputDecoration(
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           fillColor: Colors.white,
                           filled: true,
                         ),
-                        validator: (v) => v == null ? 'Please select category' : null,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please select category';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 20),
 
                       // GitHub URL
-                      const Text('GitHub URL (Optional)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'GitHub URL (Optional)',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _githubController,
                         decoration: InputDecoration(
                           hintText: 'https://github.com/...',
                           prefixIcon: const Icon(Icons.link),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           fillColor: Colors.white,
                           filled: true,
                         ),
@@ -497,7 +622,13 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                       const SizedBox(height: 20),
 
                       // Document
-                      const Text('Project Document (PDF)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Project Document (PDF)',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       GestureDetector(
                         onTap: _pickNewDocument,
@@ -507,12 +638,17 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: _newDocument != null ? Colors.green : Colors.grey.shade300),
+                            border: Border.all(
+                              color: _newDocument != null ? Colors.green : Colors.grey.shade300,
+                            ),
                           ),
                           child: Row(
                             children: [
-                              Icon(_newDocument != null ? Icons.check_circle : Icons.picture_as_pdf,
-                                  color: _newDocument != null ? Colors.green : Colors.red, size: 30),
+                              Icon(
+                                _newDocument != null ? Icons.check_circle : Icons.picture_as_pdf,
+                                color: _newDocument != null ? Colors.green : Colors.red,
+                                size: 30,
+                              ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
@@ -520,20 +656,30 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                                   children: [
                                     Text(
                                       _newDocument != null ? _documentName : 'Current Document',
-                                      style: const TextStyle(fontWeight: FontWeight.w500),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                     Text(
                                       _newDocument != null ? 'Tap to change' : 'Tap to upload new PDF',
-                                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600,
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
                               if (_newDocument == null && widget.project.documentUrl.isNotEmpty)
                                 IconButton(
-                                  icon: const Icon(Icons.open_in_new, color: Colors.grey),
+                                  icon: const Icon(
+                                    Icons.open_in_new,
+                                    color: Colors.grey,
+                                  ),
                                   onPressed: () {
-                                    context.read<ProjectCubit>().openProjectDocument(widget.project.documentUrl);
+                                    context
+                                        .read<ProjectCubit>()
+                                        .openProjectDocument(widget.project.documentUrl);
                                   },
                                 ),
                             ],
@@ -549,11 +695,22 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                             child: OutlinedButton(
                               onPressed: () => Navigator.pop(context),
                               style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Colors.grey),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                backgroundColor:Colors.white,
+                                side: const BorderSide(color: Colors.blueAccent),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                               ),
-                              child: const Text('Cancel', style: TextStyle(fontSize: 16, color: Colors.black54)),
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.black,
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -562,10 +719,21 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                               onPressed: _submitForm,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xff155DFC),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                               ),
-                              child: const Text('Save Changes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                              child: const Text(
+                                'Save Changes',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color:Colors.white
+                                ),
+                              ),
                             ),
                           ),
                         ],
@@ -583,7 +751,7 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     _tagsController.dispose();
-    _categoryController.dispose();
+    // _categoryController محذوف لأنه لم يعد موجود
     _githubController.dispose();
     super.dispose();
   }
