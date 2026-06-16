@@ -89,7 +89,7 @@ class AIWelcomeScreen extends StatelessWidget {
                         ),
                         child: const Text(
                           'Get Started',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600,color:Colors.white),
                         ),
                       ),
                     ),

@@ -1,3 +1,4 @@
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:onboard/models/TeamModels/team_member.dart';
@@ -11,7 +12,6 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
 
   final TeamApiService _teamApiService = TeamApiService();
 
-  // Data
   List<TeamMember> _allAssistants = [];
   List<TeamMember> _allMembers = [];
   List<TeamMember> _selectedAssistants = [];
@@ -22,85 +22,89 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  
   Future<void> loadUsersFromFirebase() async {
+    if (isClosed) return;
     emit(UsersLoading());
     
     try {
       final querySnapshot = await _firestore.collection('users').get();
+      if (isClosed) return;
       
       _allAssistants = [];
       _allMembers = [];
       
       for (var doc in querySnapshot.docs) {
         final userData = doc.data();
-        
         final user = UserModel.fromMap(doc.id, userData);
         
         final teamMember = TeamMember(
           id: user.uid,
           name: user.fullName,
-          role: user.track,      
-          position: user.position, 
+          role: user.track,
+          position: user.position,
           photoUrl: user.photoUrl,
+          isSelected: false,
+          isAlreadyInTeam: false,
         );
-        
         
         if (user.role == UserRole.assistant) {
           _allAssistants.add(teamMember);
         } else if (user.role == UserRole.user) {
           _allMembers.add(teamMember);
         }
-        
       }
+      
+      if (isClosed) return;
       
       emit(UsersSearchLoaded(
         assistants: _allAssistants,
         members: _allMembers,
+        studentsAlreadyInTeams: {},
       ));
       
-      print('---------- Loaded ${_allAssistants.length} assistants and ${_allMembers.length} students');
+      print('✅ Loaded ${_allAssistants.length} assistants and ${_allMembers.length} students');
       
     } catch (e) {
-      print('---------- Error loading users: $e');
-      emit(CreateTeamError(message: 'Failed to load users: $e'));
+      print('❌ Error loading users: $e');
+      if (!isClosed) {
+        emit(CreateTeamError(message: 'Failed to load users: $e'));
+      }
     }
   }
 
-  
   void searchUsers(String query) {
+    if (isClosed) return;
+    
     if (_allAssistants.isEmpty && _allMembers.isEmpty) {
       return;
     }
     
     emit(UsersSearchLoading());
 
-    Future.delayed(const Duration(milliseconds: 300), () {
-      final lowerQuery = query.toLowerCase();
+    final lowerQuery = query.toLowerCase();
 
-      final filteredAssistants = _allAssistants
-          .where((a) => a.name.toLowerCase().contains(lowerQuery))
-          .map((a) {
-            final isSelected = _selectedAssistants.any((s) => s.id == a.id);
-            return a.copyWith(isSelected: isSelected);
-          }).toList();
+    final filteredAssistants = _allAssistants
+        .where((a) => a.name.toLowerCase().contains(lowerQuery))
+        .map((a) => a.copyWith(isSelected: _selectedAssistants.any((s) => s.id == a.id)))
+        .toList();
 
-      final filteredMembers = _allMembers
-          .where((m) => m.name.toLowerCase().contains(lowerQuery))
-          .map((m) {
-            final isSelected = _selectedMembers.any((s) => s.id == m.id);
-            return m.copyWith(isSelected: isSelected);
-          }).toList();
+    final filteredMembers = _allMembers
+        .where((m) => m.name.toLowerCase().contains(lowerQuery))
+        .map((m) => m.copyWith(isSelected: _selectedMembers.any((s) => s.id == m.id)))
+        .toList();
 
-      emit(UsersSearchLoaded(
-        assistants: filteredAssistants,
-        members: filteredMembers,
-      ));
-    });
+    if (isClosed) return;
+    
+    emit(UsersSearchLoaded(
+      assistants: filteredAssistants,
+      members: filteredMembers,
+      studentsAlreadyInTeams: {},
+    ));
   }
 
-
   void toggleAssistant(TeamMember assistant) {
+    if (isClosed) return;
+    
     final isSelected = _selectedAssistants.any((a) => a.id == assistant.id);
     
     if (isSelected) {
@@ -117,8 +121,9 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
     _refreshSearchResults();
   }
 
-  
   void toggleMember(TeamMember member) {
+    if (isClosed) return;
+    
     final isSelected = _selectedMembers.any((m) => m.id == member.id);
     
     if (isSelected) {
@@ -135,8 +140,9 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
     _refreshSearchResults();
   }
 
-  
   void _refreshSearchResults() {
+    if (isClosed) return;
+    
     emit(UsersSearchLoaded(
       assistants: _allAssistants.map((a) {
         return a.copyWith(isSelected: _selectedAssistants.any((s) => s.id == a.id));
@@ -144,10 +150,10 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
       members: _allMembers.map((m) {
         return m.copyWith(isSelected: _selectedMembers.any((s) => s.id == m.id));
       }).toList(),
+      studentsAlreadyInTeams: {},
     ));
   }
 
-  
   Future<void> createTeam({
     required String teamName,
     required String projectName,
@@ -155,6 +161,7 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
     required String supervisorId,
     required String supervisorName,
   }) async {
+    if (isClosed) return;
     emit(CreateTeamLoading());
 
     try {
@@ -163,37 +170,64 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
         return;
       }
 
-      print('---------- Creating team: $teamName');
-      print('   Assistants: ${_selectedAssistants.length}');
-      print('   Members: ${_selectedMembers.length}');
+      final allMemberIds = <String>[];
+      for (var assistant in _selectedAssistants) {
+        allMemberIds.add(assistant.id);
+      }
+      for (var member in _selectedMembers) {
+        allMemberIds.add(member.id);
+      }
 
-      final backendTeam = await _teamApiService.createTeam(
+      print('✅ Creating team via backend: $teamName');
+      print('   Total members: ${allMemberIds.length}');
+
+      final result = await _teamApiService.createTeamWithResponse(
         name: teamName.trim(),
         projectName: projectName.trim().isEmpty ? null : projectName.trim(),
         description: description.trim().isEmpty ? null : description.trim(),
         supervisorId: supervisorId,
         supervisorName: supervisorName,
+        memberIds: allMemberIds,
         assistants: _selectedAssistants,
         members: _selectedMembers,
       );
 
-      if (backendTeam != null) {
-        _createdTeam = backendTeam;
-        print('---------- Team created successfully with ID: ${backendTeam.id}');
-        emit(TeamCreated(teamId: _createdTeam!.id));
+      if (result != null) {
+        final team = result['team'] as TeamModel;
+        final warning = result['warning'] as String?;
+        
+        _createdTeam = team;
+        
+        print('✅ Team created with ID: ${team.id}');
+        
+        if (warning != null && warning.isNotEmpty) {
+          print('⚠️ Backend warning: $warning');
+          if (!isClosed) {
+            emit(CreateTeamWarning(message: warning));
+          }
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
+        
+        print('✅ Team created successfully with ID: ${_createdTeam!.id}');
+        
+        if (!isClosed) {
+          emit(TeamCreated(teamId: _createdTeam!.id));
+        }
       } else {
-        print('---------- Backend failed to create team');
         emit(CreateTeamError(message: 'Failed to create team. Please try again.'));
       }
-    } catch (e, stack) {
-      print("---------- Team creation failed: $e");
-      print(stack);
-      emit(CreateTeamError(message: 'Failed to create team: $e'));
+      
+    } catch (e) {
+      print("❌ Team creation failed: $e");
+      if (!isClosed) {
+        emit(CreateTeamError(message: 'Failed to create team: $e'));
+      }
     }
   }
 
-
   void reset() {
+    if (isClosed) return;
+    
     _selectedAssistants = [];
     _selectedMembers = [];
     _allAssistants = [];
@@ -201,7 +235,6 @@ class CreateTeamCubit extends Cubit<CreateTeamState> {
     _createdTeam = null;
     emit(CreateTeamInitial());
   }
-
 
   List<TeamMember> getSelectedAssistants() => List.from(_selectedAssistants);
   List<TeamMember> getSelectedMembers() => List.from(_selectedMembers);

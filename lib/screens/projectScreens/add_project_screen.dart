@@ -43,6 +43,13 @@ class _AddProjectScreenState extends State<AddProjectScreen> {
     'Disability',
     'Agriculture',
     'Medical',
+    'Healthcare',
+    'Finance',
+    'Transportation',
+    'Lifestyle',
+    'Social',
+    'Business',
+    'Environment',
   ];
 
   Future<void> _pickCoverPhoto() async {
@@ -402,7 +409,7 @@ class _AddProjectScreenState extends State<AddProjectScreen> {
                             backgroundColor: const Color(0xff155DFC),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
-                          child: const Text('Upload Project', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                          child: const Text('Upload Project', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600 , color:Colors.white)),
                         ),
                       ),
                     ],

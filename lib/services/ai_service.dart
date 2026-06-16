@@ -1,9 +1,7 @@
-
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-
-// ── Models ────────────────────────────────────────────────────────────────────
+// ── Models ───────────────────────────────────────────────────────────────────
 
 class TeamSkill {
   final String track;
@@ -13,11 +11,13 @@ class TeamSkill {
 }
 
 class SimilarProject {
-  final int id;
+  final String id;  // ✅ changed from int to String
   final String title;
   final double similarityScore;
   final String explanation;
   final List<String> tags;
+  final String? authorName;
+  final String? githubUrl;
 
   SimilarProject({
     required this.id,
@@ -25,15 +25,33 @@ class SimilarProject {
     required this.similarityScore,
     required this.explanation,
     required this.tags,
+    this.authorName,
+    this.githubUrl,
   });
 
-  factory SimilarProject.fromJson(Map<String, dynamic> j) => SimilarProject(
-        id:              j["id"],
-        title:           j["title"],
-        similarityScore: (j["similarity_score"] as num).toDouble(),
-        explanation:     j["explanation"] ?? "",
-        tags:            List<String>.from(j["tags"]),
-      );
+  factory SimilarProject.fromJson(Map<String, dynamic> j) {
+    // ✅ Handle id as String or int
+    String idValue;
+    if (j["id"] is int) {
+      idValue = (j["id"] as int).toString();
+    } else {
+      idValue = j["id"]?.toString() ?? "";
+    }
+
+    return SimilarProject(
+      id: idValue,
+      title: j["title"] ?? "",
+      similarityScore: (j["similarity_score"] ?? 0.0).toDouble(),
+      explanation: j["similarity_explanation"] ?? j["explanation"] ?? "",
+      tags: j["tags"] != null
+          ? (j["tags"] is String
+              ? (j["tags"] as String).split(',').map((t) => t.trim()).toList()
+              : List<String>.from(j["tags"]))
+          : [],
+      authorName: j["authorName"],
+      githubUrl: j["githubUrl"],
+    );
+  }
 }
 
 class ProjectSuggestion {
@@ -54,14 +72,14 @@ class ProjectSuggestion {
   });
 
   factory ProjectSuggestion.fromJson(Map<String, dynamic> j) => ProjectSuggestion(
-        title:             j["title"],
-        description:       j["description"],
-        recommendedTracks: List<String>.from(j["recommended_tracks"]),
-        techStack:         Map<String, String>.from(j["tech_stack"] ?? {}),
-        howItWorks:        List<String>.from(j["how_it_works"] ?? []),
-        similarProjects:   (j["similar_projects"] as List? ?? [])
-                               .map((p) => SimilarProject.fromJson(p))
-                               .toList(),
+        title: j["title"] ?? "",
+        description: j["description"] ?? "",
+        recommendedTracks: List<String>.from(j["recommended_tracks"] ?? []),
+        techStack: Map<String, String>.from(j["tech_stack"] ?? {}),
+        howItWorks: List<String>.from(j["how_it_works"] ?? []),
+        similarProjects: (j["similar_projects"] as List? ?? [])
+            .map((p) => SimilarProject.fromJson(p))
+            .toList(),
       );
 }
 
@@ -72,10 +90,10 @@ class ScenarioOneResult {
   ScenarioOneResult({required this.domain, required this.suggestions});
 
   factory ScenarioOneResult.fromJson(Map<String, dynamic> j) => ScenarioOneResult(
-        domain:      j["domain"],
-        suggestions: (j["suggestions"] as List)
-                         .map((s) => ProjectSuggestion.fromJson(s))
-                         .toList(),
+        domain: j["domain"] ?? "",
+        suggestions: (j["suggestions"] as List? ?? [])
+            .map((s) => ProjectSuggestion.fromJson(s))
+            .toList(),
       );
 }
 
@@ -97,33 +115,18 @@ class ScenarioTwoResult {
   });
 
   factory ScenarioTwoResult.fromJson(Map<String, dynamic> j) => ScenarioTwoResult(
-        refinedTitle:    j["refined_title"],
-        description:     j["description"],
-        detectedTracks:  List<String>.from(j["detected_tracks"] ?? []),
-        techStack:       Map<String, String>.from(j["tech_stack"] ?? {}),
-        howItWorks:      List<String>.from(j["how_it_works"] ?? []),
+        refinedTitle: j["refined_title"] ?? "",
+        description: j["description"] ?? "",
+        detectedTracks: List<String>.from(j["detected_tracks"] ?? []),
+        techStack: Map<String, String>.from(j["tech_stack"] ?? {}),
+        howItWorks: List<String>.from(j["how_it_works"] ?? []),
         similarProjects: (j["similar_projects"] as List? ?? [])
-                             .map((p) => SimilarProject.fromJson(p))
-                             .toList(),
+            .map((p) => SimilarProject.fromJson(p))
+            .toList(),
       );
 }
 
-class ApiMeta {
-  final List<String> tracks;
-  final List<String> levels;
-  final List<String> domains;
-
-  ApiMeta({required this.tracks, required this.levels, required this.domains});
-
-  factory ApiMeta.fromJson(Map<String, dynamic> j) => ApiMeta(
-        tracks:  List<String>.from(j["tracks"]),
-        levels:  List<String>.from(j["levels"]),
-        domains: List<String>.from(j["domains"]),
-      );
-}
-
-
-// ── Service ───────────────────────────────────────────────────────────────────
+// ── Service النهائي (بيتكلم مع الـ API الجديد) ─────────────────────────────────────
 
 class ProjHubAIService {
   final String baseUrl;
@@ -131,73 +134,112 @@ class ProjHubAIService {
 
   ProjHubAIService({
     required this.baseUrl,
-    this.timeout = const Duration(seconds: 60),  // AI can be slow
+    this.timeout = const Duration(seconds: 60),
   });
 
   Map<String, String> get _headers => {
-    "Content-Type": "application/json",
-    "Accept":       "application/json",
-  };
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      };
 
-  // ── health check ──────────────────────────────────────────────────────────
-
-  Future<bool> isHealthy() async {
-    try {
-      final res = await http
-          .get(Uri.parse("$baseUrl/health"), headers: _headers)
-          .timeout(const Duration(seconds: 5));
-      return res.statusCode == 200;
-    } catch (_) {
-      return false;
-    }
+  String _buildUrl(String path) {
+    String cleanBase = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+    String cleanPath = path.startsWith('/') ? path : '/$path';
+    return '$cleanBase$cleanPath';
   }
 
-  // ── get valid tracks / levels / domains for dropdowns ─────────────────────
-
-  Future<ApiMeta> getMeta() async {
-    final res = await http
-        .get(Uri.parse("$baseUrl/api/meta"), headers: _headers)
-        .timeout(timeout);
-    _checkStatus(res);
-    return ApiMeta.fromJson(jsonDecode(res.body));
+  // ✅ Meta - مش موجود في الـ API الجديد، بنستخدم fallback data
+  Future<Map<String, List<String>>> getMeta() async {
+    return {
+      "tracks": ["AI", "Backend", "Frontend", "Mobile", "DevOps", "Data Science", "UI/UX", "Security"],
+      "levels": ["Beginner", "Intermediate", "Advanced", "Expert"],
+      "domains": ["Education", "E-Commerce", "Healthcare", "Finance", "Entertainment", "Social Media", "Agriculture", "Travel"],
+    };
   }
 
-  // ── Scenario 1: suggest projects from skills ──────────────────────────────
-
+  // ✅ Scenario 1: Suggest Projects - POST /api/ai/suggest
   Future<ScenarioOneResult> suggestProjects({
     required List<TeamSkill> skills,
     String? domain,
   }) async {
     final body = jsonEncode({
       "skills": skills.map((s) => s.toJson()).toList(),
-      if (domain != null) "domain": domain,
+      if (domain != null && domain.isNotEmpty) "domain": domain,
     });
 
-    final res = await http
-        .post(Uri.parse("$baseUrl/api/suggest"), headers: _headers, body: body)
-        .timeout(timeout);
-    _checkStatus(res);
-    return ScenarioOneResult.fromJson(jsonDecode(res.body));
-  }
-
-  // ── Scenario 2: analyze idea + find similar projects ─────────────────────
-
-  Future<ScenarioTwoResult> analyzeIdea(String idea) async {
-    final body = jsonEncode({"idea": idea});
+    final url = _buildUrl('/api/ai/suggest');
+    print("📤 POST Suggest URL: $url");
+    print("📤 Request body: $body");
 
     final res = await http
-        .post(Uri.parse("$baseUrl/api/analyze"), headers: _headers, body: body)
+        .post(
+          Uri.parse(url),
+          headers: _headers,
+          body: body,
+        )
         .timeout(timeout);
-    _checkStatus(res);
-    return ScenarioTwoResult.fromJson(jsonDecode(res.body));
-  }
 
-  // ── error handling ────────────────────────────────────────────────────────
+    print("📥 Suggest response status: ${res.statusCode}");
+    print("📥 Suggest response body: ${res.body}");
 
-  void _checkStatus(http.Response res) {
     if (res.statusCode != 200) {
-      final body = jsonDecode(res.body);
-      throw Exception("API Error ${res.statusCode}: ${body['detail'] ?? res.body}");
+      throw Exception("API Error ${res.statusCode}: ${res.body}");
+    }
+
+    final decoded = jsonDecode(res.body);
+    return ScenarioOneResult.fromJson(decoded);
+  }
+
+  // ✅ Scenario 2: Analyze Idea - POST /api/ai/analyze
+  Future<ScenarioTwoResult> analyzeIdea(String idea) async {
+    final body = jsonEncode({
+      "idea": idea,
+    });
+
+    final url = _buildUrl('/api/ai/analyze');
+    print("📤 POST Analyze URL: $url");
+    print("📤 Request body: $body");
+
+    final res = await http
+        .post(
+          Uri.parse(url),
+          headers: _headers,
+          body: body,
+        )
+        .timeout(timeout);
+
+    print("📥 Analyze response status: ${res.statusCode}");
+    print("📥 Analyze response body: ${res.body}");
+
+    if (res.statusCode != 200) {
+      throw Exception("API Error ${res.statusCode}: ${res.body}");
+    }
+
+    final decoded = jsonDecode(res.body);
+    return ScenarioTwoResult.fromJson(decoded);
+  }
+
+  // ✅ Health Check - GET /api/ai/health
+  Future<bool> healthCheck() async {
+    try {
+      final url = _buildUrl('/api/ai/health');
+      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
+      return res.statusCode == 200;
+    } catch (e) {
+      print("⚠️ Health check failed: $e");
+      return false;
+    }
+  }
+
+  // ✅ Reload Projects - POST /api/ai/reload
+  Future<bool> reloadProjects() async {
+    try {
+      final url = _buildUrl('/api/ai/reload');
+      final res = await http.post(Uri.parse(url)).timeout(const Duration(seconds: 30));
+      return res.statusCode == 200;
+    } catch (e) {
+      print("⚠️ Reload projects failed: $e");
+      return false;
     }
   }
 }

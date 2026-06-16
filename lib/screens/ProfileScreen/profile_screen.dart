@@ -1,3 +1,5 @@
+
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -10,6 +12,7 @@ import 'package:onboard/models/user_model.dart';
 import 'package:onboard/models/TeamModels/team_model.dart';
 import 'package:onboard/screens/ProfileScreen/edit_profile_screen.dart';
 import 'package:onboard/screens/ProfileScreen/settings_screen.dart';
+import 'package:onboard/screens/chatbot_screen.dart';
 import 'package:onboard/screens/community/community_screen.dart';
 import 'package:onboard/screens/projectScreens/project_details_screen.dart';
 import 'package:onboard/screens/projectScreens/project_screen.dart';
@@ -268,56 +271,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // ==================== ✅ دالة عرض الصورة المحسنة ====================
   Widget _buildProfileImage(UserModel userModel) {
-    const placeholder = Icon(Icons.person, size: 50, color: Color(0xFF1E3A8A));
-    const placeholderBg = Color(0xFFDBEAFE);
+  const placeholder = Icon(Icons.person, size: 50, color: Color(0xFF1E3A8A));
+  const placeholderBg = Color(0xFFDBEAFE);
 
-    Widget withBg(Widget child) => Container(
-      width: 128,
-      height: 128,
-      decoration: const BoxDecoration(
-        color: placeholderBg,
-        shape: BoxShape.circle,
-      ),
-      child: ClipOval(child: child),
-    );
-
-    final url = userModel.photoUrl;
-
-    if (url == null || url.isEmpty) {
-      print('❌ No photo URL for user: ${userModel.uid}');
-      return withBg(placeholder);
-    }
-
-    print('🖼️ Loading profile image from: $url');
-
-    // إذا كان الرابط من Backend (http)
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return withBg(
-        Image.network(
-          url,
-          fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Center(
-              child: CircularProgressIndicator(
-                value: loadingProgress.expectedTotalBytes != null
-                    ? loadingProgress.cumulativeBytesLoaded /
-                          loadingProgress.expectedTotalBytes!
-                    : null,
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            print('❌ Failed to load network image: $error');
-            return placeholder;
-          },
+  Widget withBg(Widget child) => Container(
+        width: 128,
+        height: 128,
+        decoration: const BoxDecoration(
+          color: placeholderBg,
+          shape: BoxShape.circle,
         ),
+        child: ClipOval(child: child),
       );
-    }
 
-    // إذا كان الرابط محلياً (من cache)
-    if (url.startsWith('/data/') || url.startsWith('/storage/')) {
+  final url = userModel.photoUrl;
+
+  if (url == null || url.isEmpty) {
+    print('❌ No photo URL for user: ${userModel.uid}');
+    return withBg(placeholder);
+  }
+
+  print('🖼️ Loading profile image from: $url');
+
+  // ✅ دائماً نتعامل مع الرابط كـ NetworkImage إذا كان يبدأ بـ http
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return withBg(
+      Image.network(
+        url,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          print('❌ Failed to load network image: $error');
+          // ✅ يمكن إضافة منطق لإعادة المحاولة هنا
+          return placeholder;
+        },
+      ),
+    );
+  }
+
+  // ✅ إذا كان مساراً محلياً
+  if (url.startsWith('/data/') || url.startsWith('/storage/')) {
+    try {
       final file = File(url);
       if (file.existsSync()) {
         return withBg(
@@ -327,13 +333,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             errorBuilder: (_, __, ___) => placeholder,
           ),
         );
+      } else {
+        print('⚠️ Local file does not exist: $url');
       }
+    } catch (e) {
+      print('⚠️ Error loading local file: $e');
     }
-
-    // أي رابط آخر
     return withBg(placeholder);
   }
 
+  return withBg(placeholder);
+}
   Widget _buildActionButtons(BuildContext context, UserModel userModel) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -389,7 +399,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             fallbackIcon: Icons.smart_toy,
             iconPadding: const EdgeInsets.all(12),
             onTap: () {
-              print('Chat Bot tapped');
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ChatbotScreen()),
+              );
             },
           ),
           _buildActionButton(
@@ -485,7 +498,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return BlocBuilder<ProjectCubit, ProjectState>(
       builder: (context, state) {
         final userProjects = state.getProjectsByUser(userModel.uid);
-        // ✅ عرض أول 2 مشاريع فقط (بدون see all/show less)
         final displayProjects = userProjects.take(2).toList();
 
         return Padding(
@@ -504,7 +516,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       fontWeight: FontWeight.w400,
                     ),
                   ),
-                  // ✅ فقط "Explore All Projects" من غير see all
                   TextButton(
                     onPressed: () {
                       Navigator.push(
@@ -657,41 +668,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildProjectCard(Project project, UserModel userModel) {
-    final isOwner = project.authorId == userModel.uid;
-    Widget _buildProjectImage(Project project) {
-      if (project.images.isEmpty) {
-        return const Icon(
-          Icons.business_center,
-          size: 40,
-          color: Color(0xFF1E3A8A),
-        );
-      }
-
-      final imageUrl = project.images.first;
-
-      // ✅ الآن كل الصور من Firebase/Backend هي URLs
-      if (imageUrl.startsWith('http')) {
-        return Image.network(
-          imageUrl,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: double.infinity,
-          errorBuilder: (_, __, ___) => const Icon(
-            Icons.business_center,
-            size: 40,
-            color: Color(0xFF1E3A8A),
-          ),
-        );
-      }
-
-      // Fallback نادر
+  // ==================== ✅ دالة عرض صورة المشروع المحسنة ====================
+  Widget _buildProjectImage(Project project) {
+    if (project.images.isEmpty) {
       return const Icon(
         Icons.business_center,
         size: 40,
         color: Color(0xFF1E3A8A),
       );
     }
+
+    final imageUrl = project.images.first;
+
+    // ✅ إذا كان URL من الشبكة
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      return Image.network(
+        imageUrl,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        },
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.business_center,
+          size: 40,
+          color: Color(0xFF1E3A8A),
+        ),
+      );
+    }
+
+    // ✅ إذا كان مسار محلي
+    if (imageUrl.startsWith('/data/') || imageUrl.startsWith('/storage/')) {
+      try {
+        final file = File(imageUrl);
+        if (file.existsSync()) {
+          return Image.file(
+            file,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+            errorBuilder: (_, __, ___) => const Icon(
+              Icons.business_center,
+              size: 40,
+              color: Color(0xFF1E3A8A),
+            ),
+          );
+        }
+      } catch (e) {
+        print('⚠️ Error loading project image: $e');
+      }
+    }
+
+    // ✅ Fallback
+    return const Icon(
+      Icons.business_center,
+      size: 40,
+      color: Color(0xFF1E3A8A),
+    );
+  }
+
+  Widget _buildProjectCard(Project project, UserModel userModel) {
+    final isOwner = project.authorId == userModel.uid;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),

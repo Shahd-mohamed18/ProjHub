@@ -1,15 +1,293 @@
-// lib/screens/community/community_screen.dart
-//
-// Only change vs original: BlocProvider selects real vs mock repo via useRealApi.
-// All UI is identical.
+// // lib/screens/community/community_screen.dart
+// //
+// // Only change vs original: BlocProvider selects real vs mock repo via useRealApi.
+// // All UI is identical.
+
+// import 'package:flutter/material.dart';
+// import 'package:flutter_bloc/flutter_bloc.dart';
+// import 'package:onboard/cubits/community/community_cubit.dart';
+// import 'package:onboard/cubits/community/community_state.dart';
+// import 'package:onboard/screens/community/comments_screen.dart';
+// import 'package:onboard/screens/community/community_profile_tab.dart';
+// import 'package:onboard/screens/community/create_post_screen.dart';
+// import 'package:onboard/widgets/community/post_card.dart';
+// import 'package:onboard/widgets/community/trending_header.dart';
+// import 'package:onboard/widgets/community/whatsonyourmind.dart';
+// import 'package:onboard/repositories/community_repository.dart';
+// import 'package:onboard/repositories/mock_community_repository.dart';
+// import 'package:onboard/repositories/api_community_repository.dart';
+// import 'package:onboard/models/CommunityModels/post_model.dart';
+
+// class CommunityScreen extends StatelessWidget {
+//   final int initialTab;
+//   const CommunityScreen({super.key, this.initialTab = 0});
+
+//   @override
+//   Widget build(BuildContext context) {
+//     // ✅ Single toggle — change useRealApi in api_community_repository.dart
+//     final ICommunityRepository repo =
+//         useRealApi ? ApiCommunityRepository() : MockCommunityRepository();
+
+//     return BlocProvider(
+//       create: (_) => CommunityCubit(repo)..loadPosts(),
+//       child: _CommunityScreenBody(initialTab: initialTab),
+//     );
+//   }
+// }
+
+// // ─── Everything below is IDENTICAL to original ───────────────────────────────
+
+// class _CommunityScreenBody extends StatefulWidget {
+//   final int initialTab;
+//   const _CommunityScreenBody({required this.initialTab});
+
+//   @override
+//   State<_CommunityScreenBody> createState() => _CommunityScreenBodyState();
+// }
+
+// class _CommunityScreenBodyState extends State<_CommunityScreenBody>
+//     with SingleTickerProviderStateMixin {
+//   late TabController _tabController;
+//   late int _currentTabIndex;
+
+//   @override
+//   void initState() {
+//     super.initState();
+//     _currentTabIndex = widget.initialTab;
+//     _tabController = TabController(
+//       length: 2,
+//       vsync: this,
+//       initialIndex: widget.initialTab,
+//     );
+//     _tabController.addListener(() {
+//       if (!_tabController.indexIsChanging) {
+//         setState(() => _currentTabIndex = _tabController.index);
+//       }
+//     });
+//   }
+
+//   @override
+//   void dispose() {
+//     _tabController.dispose();
+//     super.dispose();
+//   }
+
+//   void _openCreatePost(BuildContext context) {
+//     final cubit = context.read<CommunityCubit>();
+//     Navigator.push(
+//       context,
+//       MaterialPageRoute(
+//         builder: (_) => CreatePostScreen(cubit: cubit),
+//       ),
+//     );
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       backgroundColor: Colors.transparent,
+//       body: Container(
+//         decoration: const BoxDecoration(
+//           gradient: LinearGradient(
+//             begin: Alignment.topCenter,
+//             end: Alignment.bottomCenter,
+//             colors: [Color(0xFFEFF6FF), Color(0xFFF4F4F4), Color(0xFF7D9FCA)],
+//           ),
+//         ),
+//         child: Column(
+//           children: [
+//             _buildAppBar(context),
+//             _buildTabBar(),
+//             Expanded(
+//               child: _currentTabIndex == 0
+//                   ? _DiscoverTab(onCreatePost: () => _openCreatePost(context))
+//                   : const CommunityProfileTab(),
+//             ),
+//           ],
+//         ),
+//       ),
+//       floatingActionButton: FloatingActionButton(
+//         onPressed: () => _openCreatePost(context),
+//         backgroundColor: const Color(0xFF155DFC),
+//         shape: const CircleBorder(),
+//         child: const Icon(Icons.add, color: Colors.white),
+//       ),
+//     );
+//   }
+
+//   Widget _buildAppBar(BuildContext context) {
+//     return Container(
+//       height: 96,
+//       padding: const EdgeInsets.only(top: 48, left: 24, bottom: 16),
+//       decoration: const BoxDecoration(
+//         color: Colors.white,
+//         boxShadow: [
+//           BoxShadow(
+//               color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 4))
+//         ],
+//       ),
+//       child: Row(
+//         children: [
+//           GestureDetector(
+//             onTap: () {
+//               if (Navigator.canPop(context)) {
+//                 Navigator.pop(context);
+//               } else {
+//                 Navigator.pushReplacementNamed(context, '/main');
+//               }
+//             },
+//             child: const Icon(Icons.arrow_back_ios_new, size: 20),
+//           ),
+//           const SizedBox(width: 12),
+//           const Text('Community', style: TextStyle(fontSize: 24)),
+//           const Spacer(),
+//           Padding(
+//             padding: const EdgeInsets.only(right: 24),
+//             child: Icon(Icons.notifications_none_outlined,
+//                 color: Colors.grey[700], size: 24),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+
+//   Widget _buildTabBar() {
+//     return Container(
+//       height: 51,
+//       color: Colors.white,
+//       child: Row(
+//         children: [
+//           _buildTab('Discover', 0),
+//           _buildTab('Profile', 1),
+//         ],
+//       ),
+//     );
+//   }
+
+//   Widget _buildTab(String title, int index) {
+//     final isSelected = _currentTabIndex == index;
+//     return Expanded(
+//       child: GestureDetector(
+//         onTap: () => _tabController.animateTo(index),
+//         child: Container(
+//           decoration: BoxDecoration(
+//             border: Border(
+//               bottom: BorderSide(
+//                 width: 1.27,
+//                 color: isSelected
+//                     ? const Color(0xFF155CFB)
+//                     : Colors.transparent,
+//               ),
+//             ),
+//           ),
+//           child: Center(
+//             child: Text(
+//               title,
+//               style: TextStyle(
+//                 color: isSelected
+//                     ? const Color(0xFF155CFB)
+//                     : const Color(0xFF495565),
+//                 fontSize: 16,
+//               ),
+//             ),
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+// }
+
+// class _DiscoverTab extends StatelessWidget {
+//   final VoidCallback onCreatePost;
+//   const _DiscoverTab({required this.onCreatePost});
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return BlocBuilder<CommunityCubit, CommunityState>(
+//       builder: (context, state) {
+//         if (state is CommunityLoading) {
+//           return const Center(child: CircularProgressIndicator());
+//         }
+
+//         if (state is CommunityError) {
+//           return Center(
+//             child: Column(
+//               mainAxisAlignment: MainAxisAlignment.center,
+//               children: [
+//                 const Icon(Icons.error_outline, size: 48, color: Colors.red),
+//                 const SizedBox(height: 16),
+//                 Text('Error: ${state.message}'),
+//                 const SizedBox(height: 16),
+//                 ElevatedButton(
+//                   onPressed: () => context.read<CommunityCubit>().loadPosts(),
+//                   child: const Text('Try Again'),
+//                 ),
+//               ],
+//             ),
+//           );
+//         }
+
+//         if (state is CommunityLoaded) {
+//           final visiblePosts = state.posts
+//               .where((p) =>
+//                   p.visibility == PostVisibility.public ||
+//                   p.userId == state.currentUserId)
+//               .toList();
+
+//           return RefreshIndicator(
+//             onRefresh: () => context.read<CommunityCubit>().refreshPosts(),
+//             child: ListView.builder(
+//               padding: const EdgeInsets.only(top: 16, bottom: 100),
+//               itemCount: visiblePosts.length + 1,
+//               itemBuilder: (context, index) {
+//                 if (index == 0) {
+//                   return Column(
+//                     children: [
+//                       const SizedBox(height: 8),
+//                       WhatsOnYourMind(onTap: onCreatePost),
+//                       const SizedBox(height: 16),
+//                       const TrendingHeader(),
+//                     ],
+//                   );
+//                 }
+
+//                 final post = visiblePosts[index - 1];
+//                 return PostCard(
+//                   post: post,
+//                   onTap: () {},
+//                   onCommentTap: () {
+//                     Navigator.push(
+//                       context,
+//                       MaterialPageRoute(
+//                         builder: (_) => CommentsScreen(post: post),
+//                       ),
+//                     );
+//                   },
+//                   onLike: () =>
+//                       context.read<CommunityCubit>().toggleLike(post.id),
+//                 );
+//               },
+//             ),
+//           );
+//         }
+
+//         return const SizedBox();
+//       },
+//     );
+//   }
+// }
+
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/community/community_cubit.dart';
 import 'package:onboard/cubits/community/community_state.dart';
+import 'package:onboard/cubits/auth/auth_cubit.dart';
+import 'package:onboard/cubits/notification/notification_cubit.dart';
 import 'package:onboard/screens/community/comments_screen.dart';
 import 'package:onboard/screens/community/community_profile_tab.dart';
 import 'package:onboard/screens/community/create_post_screen.dart';
+import 'package:onboard/screens/notifications_screen.dart';
 import 'package:onboard/widgets/community/post_card.dart';
 import 'package:onboard/widgets/community/trending_header.dart';
 import 'package:onboard/widgets/community/whatsonyourmind.dart';
@@ -24,7 +302,6 @@ class CommunityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ Single toggle — change useRealApi in api_community_repository.dart
     final ICommunityRepository repo =
         useRealApi ? ApiCommunityRepository() : MockCommunityRepository();
 
@@ -34,8 +311,6 @@ class CommunityScreen extends StatelessWidget {
     );
   }
 }
-
-// ─── Everything below is IDENTICAL to original ───────────────────────────────
 
 class _CommunityScreenBody extends StatefulWidget {
   final int initialTab;
@@ -116,6 +391,9 @@ class _CommunityScreenBodyState extends State<_CommunityScreenBody>
   }
 
   Widget _buildAppBar(BuildContext context) {
+    final authState = context.watch<AuthCubit>().state;
+    final userId = authState.userModel?.uid ?? '';
+
     return Container(
       height: 96,
       padding: const EdgeInsets.only(top: 48, left: 24, bottom: 16),
@@ -141,10 +419,61 @@ class _CommunityScreenBodyState extends State<_CommunityScreenBody>
           const SizedBox(width: 12),
           const Text('Community', style: TextStyle(fontSize: 24)),
           const Spacer(),
-          Padding(
-            padding: const EdgeInsets.only(right: 24),
-            child: Icon(Icons.notifications_none_outlined,
-                color: Colors.grey[700], size: 24),
+          // 🔔 زر الإشعارات مع العلامة
+          BlocBuilder<NotificationCubit, NotificationState>(
+            builder: (context, notifyState) {
+              int unreadCount = 0;
+              if (notifyState is NotificationsLoaded) {
+                unreadCount = notifyState.unreadCount;
+              }
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_none_outlined, size: 24),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const NotificationsScreen(),
+                        ),
+                      ).then((_) {
+                        if (userId.isNotEmpty) {
+                          context.read<NotificationCubit>().loadNotifications(userId);
+                        }
+                      });
+                    },
+                    padding: EdgeInsets.only(right:30),
+                    constraints: const BoxConstraints(),
+                  ),
+                  if (unreadCount > 0)
+                    Positioned(
+                      right: -4,
+                      top: -4,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        child: Text(
+                          unreadCount > 99 ? '99+' : '$unreadCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ],
       ),

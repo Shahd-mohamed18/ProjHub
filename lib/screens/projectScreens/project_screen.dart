@@ -1,9 +1,12 @@
 
 // import 'package:flutter/material.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart';
+// import 'package:firebase_auth/firebase_auth.dart';
+// import 'package:cloud_firestore/cloud_firestore.dart';
 // import 'package:onboard/cubits/project/project_cubit.dart';
 // import 'package:onboard/models/project_model.dart';
 // import 'package:onboard/screens/projectScreens/add_project_screen.dart';
+// import 'package:onboard/screens/projectScreens/access_denied_screen.dart';
 // import 'package:onboard/widgets/project/project_card.dart';
 
 // class ProjectScreen extends StatefulWidget {
@@ -23,14 +26,105 @@
 //     'Tourism',
 //     'Disability',
 //     'Agriculture',
-//     'medical',
+//     'Medical',
+//     'Healthcare', 
+//     'Finance',
+//     'Transportation',
+//     'Lifestyle',
+//     'Social',
+//     'Business',
+//     'Environment',
 //   ];
 
 //   @override
-// void initState() {
-//   super.initState();
-//   context.read<ProjectCubit>().loadProjects(); // ✅ هتجيب من الباك اند مباشرة
-// }
+//   void initState() {
+//     super.initState();
+//     context.read<ProjectCubit>().loadProjects();
+//   }
+
+  
+//   Future<void> _checkUserRoleAndNavigate() async {
+//     try {
+//       final currentUser = FirebaseAuth.instance.currentUser;
+      
+//       if (currentUser == null) {
+      
+//         _showAccessDeniedDialog(
+//           title: 'Login Required',
+//           message: 'Please login to upload projects',
+//           icon: Icons.login_rounded,
+//         );
+//         return;
+//       }
+      
+    
+//       final userDoc = await FirebaseFirestore.instance
+//           .collection('users')
+//           .doc(currentUser.uid)
+//           .get();
+      
+//       final userRole = userDoc.data()?['role'] ?? 'user';
+      
+      
+//       if (userRole == 'assistant' || userRole == 'supervisor') {
+      
+//         Navigator.push(
+//           context,
+//           MaterialPageRoute(
+//             builder: (context) => AccessDeniedScreen(userRole: userRole),
+//           ),
+//         );
+//       } else {
+      
+//         Navigator.push(
+//           context,
+//           MaterialPageRoute(
+//             builder: (context) => const AddProjectScreen(),
+//           ),
+//         );
+//       }
+//     } catch (e) {
+    
+//       _showAccessDeniedDialog(
+//         title: 'Error',
+//         message: 'Unable to verify your permissions. Please try again.',
+//         icon: Icons.error_outline,
+//       );
+//     }
+//   }
+  
+
+//   void _showAccessDeniedDialog({
+//     required String title,
+//     required String message,
+//     required IconData icon,
+//   }) {
+//     showDialog(
+//       context: context,
+//       builder: (context) => AlertDialog(
+//         shape: RoundedRectangleBorder(
+//           borderRadius: BorderRadius.circular(16),
+//         ),
+//         title: Row(
+//           children: [
+//             Icon(icon, color: Colors.red, size: 28),
+//             const SizedBox(width: 12),
+//             Text(title),
+//           ],
+//         ),
+//         content: Text(message),
+//         actions: [
+//           TextButton(
+//             onPressed: () => Navigator.pop(context),
+//             style: TextButton.styleFrom(
+//               foregroundColor: const Color(0xff155DFC),
+//             ),
+//             child: const Text('OK'),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
 
 //   @override
 //   Widget build(BuildContext context) {
@@ -39,9 +133,9 @@
 //         decoration: BoxDecoration(
 //           gradient: LinearGradient(
 //             colors: [
-//               Color.fromARGB(255, 222, 233, 247),
+//               const Color(0xFFDEE9F7),
 //               Colors.white,
-//               Color(0xff7E9FCA),
+//               const Color(0xff7E9FCA),
 //             ],
 //             begin: Alignment.topCenter,
 //             end: Alignment.bottomCenter,
@@ -79,14 +173,7 @@
 //                             const Icon(Icons.notification_add_outlined, size: 25),
 //                             const SizedBox(width: 15),
 //                             GestureDetector(
-//                               onTap: () {
-//                                 Navigator.push(
-//                                   context,
-//                                   MaterialPageRoute(
-//                                     builder: (context) => const AddProjectScreen(),
-//                                   ),
-//                                 );
-//                               },
+//                               onTap: _checkUserRoleAndNavigate, 
 //                               child: const Icon(Icons.add_circle_outline, size: 25),
 //                             ),
 //                           ],
@@ -202,14 +289,18 @@
 // }
 
 
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:onboard/cubits/project/project_cubit.dart';
+import 'package:onboard/cubits/auth/auth_cubit.dart';
+import 'package:onboard/cubits/notification/notification_cubit.dart';
 import 'package:onboard/models/project_model.dart';
 import 'package:onboard/screens/projectScreens/add_project_screen.dart';
 import 'package:onboard/screens/projectScreens/access_denied_screen.dart';
+import 'package:onboard/screens/notifications_screen.dart';
 import 'package:onboard/widgets/project/project_card.dart';
 
 class ProjectScreen extends StatefulWidget {
@@ -229,7 +320,14 @@ class _ProjectScreenState extends State<ProjectScreen> {
     'Tourism',
     'Disability',
     'Agriculture',
-    'Medical', 
+    'Medical',
+    'Healthcare',
+    'Finance',
+    'Transportation',
+    'Lifestyle',
+    'Social',
+    'Business',
+    'Environment',
   ];
 
   @override
@@ -238,13 +336,10 @@ class _ProjectScreenState extends State<ProjectScreen> {
     context.read<ProjectCubit>().loadProjects();
   }
 
-  
   Future<void> _checkUserRoleAndNavigate() async {
     try {
       final currentUser = FirebaseAuth.instance.currentUser;
-      
       if (currentUser == null) {
-      
         _showAccessDeniedDialog(
           title: 'Login Required',
           message: 'Please login to upload projects',
@@ -252,18 +347,15 @@ class _ProjectScreenState extends State<ProjectScreen> {
         );
         return;
       }
-      
-    
+
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(currentUser.uid)
           .get();
-      
+
       final userRole = userDoc.data()?['role'] ?? 'user';
-      
-      
+
       if (userRole == 'assistant' || userRole == 'supervisor') {
-      
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -271,7 +363,6 @@ class _ProjectScreenState extends State<ProjectScreen> {
           ),
         );
       } else {
-      
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -280,7 +371,6 @@ class _ProjectScreenState extends State<ProjectScreen> {
         );
       }
     } catch (e) {
-    
       _showAccessDeniedDialog(
         title: 'Error',
         message: 'Unable to verify your permissions. Please try again.',
@@ -288,7 +378,6 @@ class _ProjectScreenState extends State<ProjectScreen> {
       );
     }
   }
-  
 
   void _showAccessDeniedDialog({
     required String title,
@@ -324,6 +413,9 @@ class _ProjectScreenState extends State<ProjectScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = context.watch<AuthCubit>().state;
+    final userId = authState.userModel?.uid ?? '';
+
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -366,10 +458,65 @@ class _ProjectScreenState extends State<ProjectScreen> {
                         ),
                         Row(
                           children: [
-                            const Icon(Icons.notification_add_outlined, size: 25),
+                            // 🔔 زر الإشعارات مع العلامة
+                            BlocBuilder<NotificationCubit, NotificationState>(
+                              builder: (context, notifyState) {
+                                int unreadCount = 0;
+                                if (notifyState is NotificationsLoaded) {
+                                  unreadCount = notifyState.unreadCount;
+                                }
+                                return Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.notifications_none_outlined, size: 25),
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => const NotificationsScreen(),
+                                          ),
+                                        ).then((_) {
+                                          if (userId.isNotEmpty) {
+                                            context.read<NotificationCubit>().loadNotifications(userId);
+                                          }
+                                        });
+                                      },
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                    ),
+                                    if (unreadCount > 0)
+                                      Positioned(
+                                        right: -4,
+                                        top: -4,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(4),
+                                          decoration: const BoxDecoration(
+                                            color: Colors.red,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          constraints: const BoxConstraints(
+                                            minWidth: 18,
+                                            minHeight: 18,
+                                          ),
+                                          child: Text(
+                                            unreadCount > 99 ? '99+' : '$unreadCount',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                );
+                              },
+                            ),
                             const SizedBox(width: 15),
                             GestureDetector(
-                              onTap: _checkUserRoleAndNavigate, 
+                              onTap: _checkUserRoleAndNavigate,
                               child: const Icon(Icons.add_circle_outline, size: 25),
                             ),
                           ],
@@ -378,7 +525,7 @@ class _ProjectScreenState extends State<ProjectScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // Categories
+                  // التصنيفات
                   SizedBox(
                     height: 40,
                     child: ListView.builder(
@@ -424,7 +571,7 @@ class _ProjectScreenState extends State<ProjectScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  // Projects List
+                  // قائمة المشاريع
                   Expanded(
                     child: filteredProjects.isEmpty
                         ? Center(
