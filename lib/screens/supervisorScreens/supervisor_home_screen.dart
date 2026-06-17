@@ -229,8 +229,8 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
                     ],
 
                     Expanded(
-                      child: _buildTasksCard(context),
-                    ),
+                     child: _buildTasksCard(context, userId),
+                      ),
                   ],
                 ),
               ),
