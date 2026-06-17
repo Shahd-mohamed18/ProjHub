@@ -84,7 +84,7 @@ class _MainLayoutNavbarState extends State<MainLayoutNavbar> {
     switch (user.role) {
       case UserRole.supervisor:
       case UserRole.assistant:
-        return const SupervisorHomeScreen(); // ✅ مع const
+        return  SupervisorHomeScreen(); // ✅ مع const
       case UserRole.user:
       default:
         return const HomeScreen();

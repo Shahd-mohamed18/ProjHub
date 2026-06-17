@@ -48,9 +48,9 @@ class _Scenario1ScreenState extends State<Scenario1Screen> {
       if (!mounted) return;
       
       setState(() {
-        _tracks = meta.tracks;
-        _levels = meta.levels;
-        _domains = meta.domains;
+        _tracks = meta["tracks"]!;
+        _levels = meta["levels"]!;
+        _domains = meta["domains"]!;
         _isLoadingMeta = false;
       });
     } catch (e) {
@@ -326,21 +326,18 @@ class _Scenario1ScreenState extends State<Scenario1Screen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // العنوان - بدون قطع
               Text(
                 suggestion.title,
                 style: AppTheme.headlineMedium,
               ),
               const SizedBox(height: 12),
               
-              // الوصف - عرض كامل بدون قطع
               Text(
                 suggestion.description,
                 style: AppTheme.bodyText,
               ),
               const SizedBox(height: 16),
               
-              // Recommended Tracks
               Text(
                 'Recommended Tracks:',
                 style: AppTheme.bodyText.copyWith(fontWeight: FontWeight.bold),
@@ -359,7 +356,6 @@ class _Scenario1ScreenState extends State<Scenario1Screen> {
               ),
               const SizedBox(height: 16),
               
-              // Tech Stack - عرض كامل
               Text(
                 'Tech Stack:',
                 style: AppTheme.bodyText.copyWith(fontWeight: FontWeight.bold),
@@ -396,7 +392,6 @@ class _Scenario1ScreenState extends State<Scenario1Screen> {
               ),
               const SizedBox(height: 16),
               
-              // How it works - عرض كامل
               if (suggestion.howItWorks.isNotEmpty) ...[
                 Text(
                   'How it works:',
@@ -453,7 +448,6 @@ class _Scenario1ScreenState extends State<Scenario1Screen> {
                 const SizedBox(height: 16),
               ],
               
-              // Similar Projects - عرض كامل
               if (suggestion.similarProjects.isNotEmpty) ...[
                 Text(
                   'Similar Projects in ProjHub:',

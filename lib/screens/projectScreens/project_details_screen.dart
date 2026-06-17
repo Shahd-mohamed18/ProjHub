@@ -348,7 +348,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
                               icon: const Icon(Icons.chat, size: 18),
                               label: const Text('Chat'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xff314F6A),
+                                backgroundColor: const Color(0xFF2196F3),
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 12,

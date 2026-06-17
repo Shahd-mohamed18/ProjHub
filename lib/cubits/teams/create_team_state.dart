@@ -1,49 +1,75 @@
 
-
-
-// lib/cubits/teams/create_team_state.dart
+import 'package:equatable/equatable.dart';
 import 'package:onboard/models/TeamModels/team_member.dart';
 
-abstract class CreateTeamState {}
+abstract class CreateTeamState extends Equatable {
+  const CreateTeamState();
+  
+  @override
+  List<Object?> get props => [];
+}
 
 class CreateTeamInitial extends CreateTeamState {}
 
 class CreateTeamLoading extends CreateTeamState {}
 
-class UsersLoading extends CreateTeamState {} // حالة تحميل المستخدمين
+class TeamCreated extends CreateTeamState {
+  final String teamId;
+  const TeamCreated({required this.teamId});
+  
+  @override
+  List<Object> get props => [teamId];
+}
+
+class CreateTeamError extends CreateTeamState {
+  final String message;
+  const CreateTeamError({required this.message});
+  
+  @override
+  List<Object> get props => [message];
+}
+
+class CreateTeamWarning extends CreateTeamState {
+  final String message;
+  const CreateTeamWarning({required this.message});
+  
+  @override
+  List<Object> get props => [message];
+}
+
+class UsersLoading extends CreateTeamState {}
 
 class UsersSearchLoading extends CreateTeamState {}
 
 class UsersSearchLoaded extends CreateTeamState {
   final List<TeamMember> assistants;
   final List<TeamMember> members;
-  UsersSearchLoaded({required this.assistants, required this.members});
-}
-
-class UsersLoaded extends CreateTeamState { // حالة بعد تحميل كل المستخدمين
-  final List<TeamMember> allAssistants;
-  final List<TeamMember> allMembers;
-  UsersLoaded({required this.allAssistants, required this.allMembers});
+  final Set<String> studentsAlreadyInTeams;
+  
+  const UsersSearchLoaded({
+    required this.assistants,
+    required this.members,
+    this.studentsAlreadyInTeams = const {},
+  });
+  
+  @override
+  List<Object?> get props => [assistants, members, studentsAlreadyInTeams];
 }
 
 class AssistantToggled extends CreateTeamState {
   final List<TeamMember> selectedAssistants;
   final List<TeamMember> selectedMembers;
-  AssistantToggled({required this.selectedAssistants, required this.selectedMembers});
+  const AssistantToggled({required this.selectedAssistants, required this.selectedMembers});
+  
+  @override
+  List<Object> get props => [selectedAssistants, selectedMembers];
 }
 
 class MemberToggled extends CreateTeamState {
   final List<TeamMember> selectedAssistants;
   final List<TeamMember> selectedMembers;
-  MemberToggled({required this.selectedAssistants, required this.selectedMembers});
-}
-
-class TeamCreated extends CreateTeamState {
-  final String teamId;
-  TeamCreated({required this.teamId});
-}
-
-class CreateTeamError extends CreateTeamState {
-  final String message;
-  CreateTeamError({required this.message});
+  const MemberToggled({required this.selectedAssistants, required this.selectedMembers});
+  
+  @override
+  List<Object> get props => [selectedAssistants, selectedMembers];
 }

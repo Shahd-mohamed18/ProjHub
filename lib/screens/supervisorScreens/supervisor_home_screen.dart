@@ -1,3 +1,5 @@
+
+// lib/screens/supervisorScreens/supervisor_home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/auth/auth_cubit.dart';
@@ -11,6 +13,7 @@ import 'package:onboard/screens/supervisorScreens/all_tasks_screen.dart';
 import 'package:onboard/screens/supervisorScreens/all_teams_screen.dart';
 import 'package:onboard/screens/supervisorScreens/supervisor_projects_screen.dart';
 import 'package:onboard/screens/supervisorScreens/team_details_screen.dart';
+
 
 import 'dart:io';
 
@@ -59,6 +62,13 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
     }
   }
 
+  // ✅ دالة لإعادة تحميل الفرق
+  void _reloadTeams(BuildContext context, String userId, UserRole userRole) {
+    if (userId.isNotEmpty) {
+      context.read<TeamsCubit>().loadTeamsForUser(userId, userRole);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = context.watch<AuthCubit>().state;
@@ -71,9 +81,10 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
     final userPhoto = user?.photoUrl;
     final userId = user?.uid ?? '';
 
+    // تحميل الفرق عند فتح الصفحة
     if (teamsState is TeamsInitial && userId.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        context.read<TeamsCubit>().loadTeamsForUser(userId, userRole);
+        _reloadTeams(context, userId, userRole);
       });
     }
 
@@ -151,8 +162,13 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
                         ),
                       ],
                     ),
-                    const Icon(Icons.notification_add_outlined,
-                        size: 28, color: Colors.black),
+                    GestureDetector(
+                      onTap: () async {
+                        // ✅ عند الضغط على زر الإشعارات
+                      },
+                      child: const Icon(Icons.notification_add_outlined,
+                          size: 28, color: Colors.black),
+                    ),
                   ],
                 ),
               ),
@@ -166,46 +182,52 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
                   children: [
                     Expanded(
                       child: GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) =>
-                                  AllTeamsScreen(userRole: userRole)),
-                        ),
-                        child:
-                            _buildStatCard('Teams', teamsCount.toString()),
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    AllTeamsScreen(userRole: userRole)),
+                          );
+                          _reloadTeams(context, userId, userRole);
+                        },
+                        child: _buildStatCard('Teams', teamsCount.toString()),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) =>
-                                  const SupervisorProjectsScreen()),
-                        ),
-                        child: _buildStatCard(
-                            'Projects', projectsCount.toString()),
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    const SupervisorProjectsScreen()),
+                          );
+                          _reloadTeams(context, userId, userRole);
+                        },
+                        child: _buildStatCard('Projects', projectsCount.toString()),
                       ),
                     ),
                     const SizedBox(width: 12),
                     if (isSupervisor) ...[
                       Expanded(
                         child: GestureDetector(
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) =>
-                                    AllMembersScreen(teams: teams)),
-                          ),
-                          child: _buildStatCard(
-                              'Members', membersCount.toString()),
+                          onTap: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) =>
+                                      AllMembersScreen(teams: teams)),
+                            );
+                            _reloadTeams(context, userId, userRole);
+                          },
+                          child: _buildStatCard('Members', membersCount.toString()),
                         ),
                       ),
                       const SizedBox(width: 12),
                     ],
-                    // ✅ Tasks stat card – shows real task count
+
                     Expanded(
                       child: _buildTasksCard(context),
                     ),
@@ -233,12 +255,15 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
                               fontWeight: FontWeight.w600),
                         ),
                         GestureDetector(
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) =>
-                                    AllTeamsScreen(userRole: userRole)),
-                          ),
+                          onTap: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) =>
+                                      AllTeamsScreen(userRole: userRole)),
+                            );
+                            _reloadTeams(context, userId, userRole);
+                          },
                           child: const Text(
                             'View All',
                             style: TextStyle(
@@ -262,19 +287,21 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
                         (team) => Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: GestureDetector(
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => TeamDetailsScreen(
-                                  team: team,
-                                  userRole: userRole,
+                            onTap: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => TeamDetailsScreen(
+                                    team: team,
+                                    userRole: userRole,
+                                  ),
                                 ),
-                              ),
-                            ),
+                              );
+                              _reloadTeams(context, userId, userRole);
+                            },
                             child: _buildTeamCard(
                               teamName: team.name,
-                              projectName:
-                                  team.projectName ?? 'No Project',
+                              projectName: team.projectName ?? 'No Project',
                             ),
                           ),
                         ),
@@ -290,8 +317,9 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
     );
   }
 
-  // ── Tasks stat card — navigates to AllTasksScreen ──────────────
-  Widget _buildTasksCard(BuildContext context) {
+
+  Widget _buildTasksCard(BuildContext context, String userId) {
+
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
