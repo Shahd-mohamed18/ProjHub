@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/project/project_cubit.dart';
@@ -24,7 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _initNotifications();
-    // تحميل المشاريع عند فتح الصفحة الرئيسية
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ProjectCubit>().loadProjects();
     });
@@ -32,15 +31,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _initNotifications() async {
     await Future.delayed(const Duration(milliseconds: 500));
-    
+
     final authState = context.read<AuthCubit>().state;
     final userId = authState.userModel?.uid;
-    
+
     if (userId != null && userId.isNotEmpty) {
       try {
         await Notification2Service.instance.init(userId);
         await context.read<NotificationCubit>().loadNotifications(userId);
-        
+
         Notification2Service.instance.onNotification.listen((notification) {
           if (mounted) {
             context.read<NotificationCubit>().addNewNotification(notification);
@@ -63,7 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final authState = context.watch<AuthCubit>().state;
     final userId = authState.userModel?.uid ?? '';
-    
+
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -81,9 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             _buildHeader(userId),
             _buildQuickActions(),
-            Expanded(
-              child: _buildMainContent(),
-            ),
+            Expanded(child: _buildMainContent()),
           ],
         ),
       ),
@@ -93,12 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildHeader(String userId) {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.only(
-        top: 40,
-        left: 16,
-        right: 16,
-        bottom: 24,
-      ),
+      padding: const EdgeInsets.only(top: 40, left: 16, right: 16, bottom: 24),
       width: double.infinity,
       child: Column(
         children: [
@@ -114,8 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const Spacer(),
-              
-              // زر البحث - يفتح شاشة جديدة
+
               IconButton(
                 icon: const Icon(Icons.search, size: 28),
                 onPressed: () {
@@ -130,20 +121,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 constraints: const BoxConstraints(),
               ),
               const SizedBox(width: 8),
-              
-              // زر الإشعارات مع العلامة
+
               BlocBuilder<NotificationCubit, NotificationState>(
                 builder: (context, state) {
                   int unreadCount = 0;
                   if (state is NotificationsLoaded) {
                     unreadCount = state.unreadCount;
                   }
-                  
+
                   return Stack(
                     clipBehavior: Clip.none,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.notifications_none_outlined, size: 28),
+                        icon: const Icon(
+                          Icons.notifications_none_outlined,
+                          size: 28,
+                        ),
                         onPressed: () {
                           Navigator.push(
                             context,
@@ -152,7 +145,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ).then((_) {
                             if (userId.isNotEmpty) {
-                              context.read<NotificationCubit>().loadNotifications(userId);
+                              context
+                                  .read<NotificationCubit>()
+                                  .loadNotifications(userId);
                             }
                           });
                         },
@@ -203,7 +198,11 @@ class _HomeScreenState extends State<HomeScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildActionButton(
-            icon: Image.asset('assets/images/chatbot.png', width: 30, height: 30),
+            icon: Image.asset(
+              'assets/images/chatbot.png',
+              width: 30,
+              height: 30,
+            ),
             label: 'AI Assistant',
             onTap: () {
               Navigator.push(
@@ -215,16 +214,18 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             color: const Color(0xff22C55E),
           ),
-          
+
           _buildActionButton(
-            icon: Image.asset('assets/images/task_icon.png', width: 30, height: 30),
+            icon: Image.asset(
+              'assets/images/task_icon.png',
+              width: 30,
+              height: 30,
+            ),
             label: 'Tasks',
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const TasksScreen(),
-                ),
+                MaterialPageRoute(builder: (context) => const TasksScreen()),
               );
             },
             color: const Color(0xD6FF002A),
@@ -290,17 +291,11 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 const Text(
                   'This Week',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 22,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
                 ),
                 Text(
                   'View to-do list',
-                  style: TextStyle(
-                    color: Colors.blue[400],
-                    fontSize: 15,
-                  ),
+                  style: TextStyle(color: Colors.blue[400], fontSize: 15),
                 ),
               ],
             ),

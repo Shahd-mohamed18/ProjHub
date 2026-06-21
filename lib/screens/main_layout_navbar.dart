@@ -1,4 +1,3 @@
-// lib/main_layout_navbar.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/auth/auth_cubit.dart';
@@ -9,6 +8,7 @@ import 'package:onboard/screens/chatScreens/chats_screen.dart';
 import 'package:onboard/screens/community/community_screen.dart';
 import 'package:onboard/screens/home_screen.dart';
 import 'package:onboard/screens/projectScreens/project_screen.dart';
+import 'package:onboard/screens/supervisorScreens/dashboard_webview_screen.dart';
 import 'package:onboard/screens/supervisorScreens/supervisor_home_screen.dart';
 
 class MainLayoutNavbar extends StatefulWidget {
@@ -20,7 +20,7 @@ class MainLayoutNavbar extends StatefulWidget {
 
 class _MainLayoutNavbarState extends State<MainLayoutNavbar> {
   int currentIndex = 0;
-  
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<AuthCubit, AuthState>(
@@ -31,14 +31,18 @@ class _MainLayoutNavbarState extends State<MainLayoutNavbar> {
           );
         }
 
-        if (state.status != AuthStatus.authenticated || state.userModel == null) {
+        if (state.status != AuthStatus.authenticated ||
+            state.userModel == null) {
           return const Scaffold(
-            body: Center(child: Text('Something went wrong. Please login again.')),
+            body: Center(
+              child: Text('Something went wrong. Please login again.'),
+            ),
           );
         }
 
         final user = state.userModel!;
-        
+        final isSupervisor = user.role == UserRole.supervisor;
+
         return WillPopScope(
           onWillPop: () async {
             if (currentIndex != 0) {
@@ -73,7 +77,38 @@ class _MainLayoutNavbarState extends State<MainLayoutNavbar> {
                 ],
               ),
             ),
-            bottomNavigationBar: _buildBottomNavBar(), // ✅ استخدام SafeArea
+
+            floatingActionButton: (isSupervisor && currentIndex == 0)
+                ? FloatingActionButton.extended(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => DashboardWebViewScreen(
+                            supervisorId: user.uid,
+                            supervisorName: user.fullName,
+                          ),
+                        ),
+                      );
+                    },
+                    backgroundColor: const Color(0xFF155CFB),
+                    icon: const Icon(
+                      Icons.dashboard,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    label: const Text(
+                      'Dashboard',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  )
+                : null,
+            floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+            bottomNavigationBar: _buildBottomNavBar(),
           ),
         );
       },
@@ -85,6 +120,7 @@ class _MainLayoutNavbarState extends State<MainLayoutNavbar> {
       case UserRole.supervisor:
       case UserRole.assistant:
         return SupervisorHomeScreen();
+
       case UserRole.user:
       default:
         return const HomeScreen();

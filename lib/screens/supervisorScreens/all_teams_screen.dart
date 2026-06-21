@@ -13,10 +13,7 @@ import 'package:onboard/widgets/team/team_card_widget.dart';
 class AllTeamsScreen extends StatefulWidget {
   final UserRole userRole;
 
-  const AllTeamsScreen({
-    super.key,
-    required this.userRole,
-  });
+  const AllTeamsScreen({super.key, required this.userRole});
 
   @override
   State<AllTeamsScreen> createState() => _AllTeamsScreenState();
@@ -106,7 +103,6 @@ class _AllTeamsScreenState extends State<AllTeamsScreen> {
                 ),
               ),
 
-              // Header with Your Teams and New Team (للدكتور فقط)
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -131,7 +127,7 @@ class _AllTeamsScreenState extends State<AllTeamsScreen> {
                             fontWeight: FontWeight.w400,
                           ),
                         ),
-                        // New Team button - يظهر للدكتور فقط
+
                         if (isSupervisor)
                           GestureDetector(
                             onTap: () async {
@@ -285,4 +281,4 @@ class _AllTeamsScreenState extends State<AllTeamsScreen> {
       ),
     );
   }
-} 
+}

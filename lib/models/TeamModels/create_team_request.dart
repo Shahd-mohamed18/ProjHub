@@ -1,4 +1,3 @@
-// CreateTeamRequest - للـ API
 class CreateTeamRequest {
   final String name;
   final String? projectName;
@@ -35,7 +34,6 @@ class CreateTeamRequest {
   }
 }
 
-// TeamResponse - الرد من الـ API بعد إنشاء الفريق
 class TeamResponse {
   final int id;
   final String name;

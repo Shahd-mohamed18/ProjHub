@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,10 +9,7 @@ import 'package:onboard/models/TeamModels/team_model.dart';
 class AddMembersScreen extends StatefulWidget {
   final TeamModel team;
 
-  const AddMembersScreen({
-    super.key,
-    required this.team,
-  });
+  const AddMembersScreen({super.key, required this.team});
 
   @override
   State<AddMembersScreen> createState() => _AddMembersScreenState();
@@ -25,7 +21,7 @@ class _AddMembersScreenState extends State<AddMembersScreen> {
   bool _isLoading = true;
   bool _isAdding = false;
   String _searchQuery = '';
-  
+
   Set<String> _studentsInOtherTeams = {};
 
   @override
@@ -40,14 +36,16 @@ class _AddMembersScreenState extends State<AddMembersScreen> {
     });
 
     try {
-      final teamsSnapshot = await FirebaseFirestore.instance.collection('teams').get();
+      final teamsSnapshot = await FirebaseFirestore.instance
+          .collection('teams')
+          .get();
       final studentsInAllTeams = <String>{};
-      
+
       for (var doc in teamsSnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
         final teamId = data['id']?.toString() ?? doc.id;
         if (teamId == widget.team.id) continue;
-        
+
         final members = data['members'] as List? ?? [];
         for (var member in members) {
           if (member is Map && member['id'] != null) {
@@ -55,23 +53,30 @@ class _AddMembersScreenState extends State<AddMembersScreen> {
           }
         }
       }
-      
+
       _studentsInOtherTeams = studentsInAllTeams;
-      
-      final allUsers = await context.read<TeamsCubit>().getStudentsFromFirebase();
-      
+
+      final allUsers = await context
+          .read<TeamsCubit>()
+          .getStudentsFromFirebase();
+
       final existingMemberIds = widget.team.members.map((m) => m.id).toSet();
-      final existingAssistantIds = widget.team.assistants.map((a) => a.id).toSet();
+      final existingAssistantIds = widget.team.assistants
+          .map((a) => a.id)
+          .toSet();
       final allExistingIds = {...existingMemberIds, ...existingAssistantIds};
-      
+
       setState(() {
-        _allUsers = allUsers.where((u) => !allExistingIds.contains(u.id)).toList();
+        _allUsers = allUsers
+            .where((u) => !allExistingIds.contains(u.id))
+            .toList();
         _isLoading = false;
       });
-      
+
       print('✅ Available users to add: ${_allUsers.length}');
-      print('   Students already in other teams: ${_studentsInOtherTeams.length}');
-      
+      print(
+        '   Students already in other teams: ${_studentsInOtherTeams.length}',
+      );
     } catch (e) {
       print('❌ Error loading users: $e');
       setState(() {
@@ -89,7 +94,7 @@ class _AddMembersScreenState extends State<AddMembersScreen> {
       _showSnackBar('${user.name} is already in another team!', isError: true);
       return;
     }
-    
+
     setState(() {
       final index = _selectedMembers.indexWhere((u) => u.id == user.id);
       if (index != -1) {
@@ -118,10 +123,15 @@ class _AddMembersScreenState extends State<AddMembersScreen> {
       return;
     }
 
-    final invalidMembers = _selectedMembers.where((m) => _isUserInOtherTeam(m)).toList();
+    final invalidMembers = _selectedMembers
+        .where((m) => _isUserInOtherTeam(m))
+        .toList();
     if (invalidMembers.isNotEmpty) {
       final invalidNames = invalidMembers.map((m) => m.name).join(', ');
-      _showSnackBar('Cannot add: $invalidNames (already in another team)', isError: true);
+      _showSnackBar(
+        'Cannot add: $invalidNames (already in another team)',
+        isError: true,
+      );
       return;
     }
 
@@ -138,7 +148,6 @@ class _AddMembersScreenState extends State<AddMembersScreen> {
       _isAdding = false;
     });
 
-    // ✅ إرجاع true عند النجاح، false عند الفشل
     if (success && mounted) {
       _showSnackBar('Added ${_selectedMembers.length} members successfully');
       await _loadUsersAndCheckTeams();
@@ -198,7 +207,7 @@ class _AddMembersScreenState extends State<AddMembersScreen> {
                         blurRadius: 4,
                         offset: Offset(0, 1),
                         spreadRadius: 0,
-                      )
+                      ),
                     ],
                   ),
                   child: Stack(
@@ -259,7 +268,7 @@ class _AddMembersScreenState extends State<AddMembersScreen> {
                     ],
                   ),
                 ),
-                
+
                 // Search Bar
                 Padding(
                   padding: const EdgeInsets.all(16),
@@ -278,7 +287,10 @@ class _AddMembersScreenState extends State<AddMembersScreen> {
                     child: TextField(
                       decoration: InputDecoration(
                         hintText: 'Search members...',
-                        prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                        prefixIcon: const Icon(
+                          Icons.search,
+                          color: Colors.grey,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
@@ -298,7 +310,7 @@ class _AddMembersScreenState extends State<AddMembersScreen> {
                     ),
                   ),
                 ),
-                
+
                 // Users List
                 Expanded(
                   child: Container(
@@ -324,168 +336,172 @@ class _AddMembersScreenState extends State<AddMembersScreen> {
                     child: _isLoading
                         ? const Center(child: CircularProgressIndicator())
                         : _filteredUsers.isEmpty
-                            ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.people_outline,
-                                      size: 64,
-                                      color: Colors.grey.shade400,
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      _searchQuery.isEmpty
-                                          ? 'No members available to add'
-                                          : 'No members found',
-                                      style: TextStyle(
-                                        color: Colors.grey.shade600,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                  ],
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.people_outline,
+                                  size: 64,
+                                  color: Colors.grey.shade400,
                                 ),
-                              )
-                            : ListView.builder(
-                                itemCount: _filteredUsers.length,
-                                itemBuilder: (context, index) {
-                                  final user = _filteredUsers[index];
-                                  final isSelected = _selectedMembers
-                                      .any((u) => u.id == user.id);
-                                  final isInOtherTeam = _isUserInOtherTeam(user);
-                                  
-                                  return Container(
-                                    margin: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? const Color(0xFFEFF6FF)
-                                          : Colors.white,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: isSelected
-                                            ? const Color(0xFF155CFB)
-                                            : (isInOtherTeam 
-                                                ? Colors.red.shade300 
-                                                : const Color(0xFFF2F4F6)),
-                                        width: isInOtherTeam ? 1.5 : 1,
+                                const SizedBox(height: 16),
+                                Text(
+                                  _searchQuery.isEmpty
+                                      ? 'No members available to add'
+                                      : 'No members found',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: _filteredUsers.length,
+                            itemBuilder: (context, index) {
+                              final user = _filteredUsers[index];
+                              final isSelected = _selectedMembers.any(
+                                (u) => u.id == user.id,
+                              );
+                              final isInOtherTeam = _isUserInOtherTeam(user);
+
+                              return Container(
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? const Color(0xFFEFF6FF)
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? const Color(0xFF155CFB)
+                                        : (isInOtherTeam
+                                              ? Colors.red.shade300
+                                              : const Color(0xFFF2F4F6)),
+                                    width: isInOtherTeam ? 1.5 : 1,
+                                  ),
+                                ),
+                                child: Opacity(
+                                  opacity: isInOtherTeam ? 0.6 : 1.0,
+                                  child: ListTile(
+                                    leading: CircleAvatar(
+                                      backgroundColor: isInOtherTeam
+                                          ? Colors.red.shade100
+                                          : (isSelected
+                                                ? const Color(0xFF155CFB)
+                                                : Colors.grey.shade300),
+                                      radius: 20,
+                                      child: Text(
+                                        user.name.isNotEmpty
+                                            ? user.name[0].toUpperCase()
+                                            : '?',
+                                        style: TextStyle(
+                                          color: isInOtherTeam
+                                              ? Colors.red.shade700
+                                              : (isSelected
+                                                    ? Colors.white
+                                                    : Colors.grey.shade700),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
                                       ),
                                     ),
-                                    child: Opacity(
-                                      opacity: isInOtherTeam ? 0.6 : 1.0,
-                                      child: ListTile(
-                                        leading: CircleAvatar(
-                                          backgroundColor: isInOtherTeam
-                                              ? Colors.red.shade100
-                                              : (isSelected
-                                                  ? const Color(0xFF155CFB)
-                                                  : Colors.grey.shade300),
-                                          radius: 20,
+                                    title: Row(
+                                      children: [
+                                        Expanded(
                                           child: Text(
-                                            user.name.isNotEmpty
-                                                ? user.name[0].toUpperCase()
-                                                : '?',
+                                            user.name,
                                             style: TextStyle(
+                                              fontWeight: FontWeight.w500,
+                                              fontSize: 16,
                                               color: isInOtherTeam
                                                   ? Colors.red.shade700
-                                                  : (isSelected 
-                                                      ? Colors.white 
-                                                      : Colors.grey.shade700),
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
+                                                  : Colors.black,
                                             ),
                                           ),
                                         ),
-                                        title: Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                user.name,
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w500,
-                                                  fontSize: 16,
-                                                  color: isInOtherTeam
-                                                      ? Colors.red.shade700
-                                                      : Colors.black,
-                                                ),
+                                        if (isInOtherTeam)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.red.shade50,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              border: Border.all(
+                                                color: Colors.red.shade300,
                                               ),
                                             ),
-                                            if (isInOtherTeam)
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 8,
-                                                  vertical: 4,
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.warning_amber_rounded,
+                                                  size: 12,
+                                                  color: Colors.red.shade700,
                                                 ),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.red.shade50,
-                                                  borderRadius: BorderRadius.circular(12),
-                                                  border: Border.all(
-                                                    color: Colors.red.shade300,
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  'In Team',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: Colors.red.shade700,
+                                                    fontWeight: FontWeight.w500,
                                                   ),
                                                 ),
-                                                child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    Icon(
-                                                      Icons.warning_amber_rounded,
-                                                      size: 12,
-                                                      color: Colors.red.shade700,
-                                                    ),
-                                                    const SizedBox(width: 4),
-                                                    Text(
-                                                      'In Team',
-                                                      style: TextStyle(
-                                                        fontSize: 10,
-                                                        color: Colors.red.shade700,
-                                                        fontWeight: FontWeight.w500,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                        subtitle: Text(
-                                          isInOtherTeam
-                                              ? 'Already enrolled in another team'
-                                              : (user.role ?? user.position ?? 'Member'),
-                                          style: TextStyle(
-                                            color: isInOtherTeam
-                                                ? Colors.red.shade700
-                                                : Colors.grey.shade600,
-                                            fontSize: 13,
+                                              ],
+                                            ),
                                           ),
-                                        ),
-                                        trailing: isSelected
-                                            ? const Icon(
-                                                Icons.check_circle,
-                                                color: Color(0xFF155CFB),
-                                                size: 24,
-                                              )
-                                            : (isInOtherTeam
-                                                ? const Icon(
-                                                    Icons.block,
-                                                    color: Colors.red,
-                                                    size: 24,
-                                                  )
-                                                : const Icon(
-                                                    Icons.add_circle_outline,
-                                                    color: Colors.grey,
-                                                    size: 24,
-                                                  )),
-                                        onTap: isInOtherTeam
-                                            ? null
-                                            : () => _toggleSelection(user),
+                                      ],
+                                    ),
+                                    subtitle: Text(
+                                      isInOtherTeam
+                                          ? 'Already enrolled in another team'
+                                          : (user.role ??
+                                                user.position ??
+                                                'Member'),
+                                      style: TextStyle(
+                                        color: isInOtherTeam
+                                            ? Colors.red.shade700
+                                            : Colors.grey.shade600,
+                                        fontSize: 13,
                                       ),
                                     ),
-                                  );
-                                },
-                              ),
+                                    trailing: isSelected
+                                        ? const Icon(
+                                            Icons.check_circle,
+                                            color: Color(0xFF155CFB),
+                                            size: 24,
+                                          )
+                                        : (isInOtherTeam
+                                              ? const Icon(
+                                                  Icons.block,
+                                                  color: Colors.red,
+                                                  size: 24,
+                                                )
+                                              : const Icon(
+                                                  Icons.add_circle_outline,
+                                                  color: Colors.grey,
+                                                  size: 24,
+                                                )),
+                                    onTap: isInOtherTeam
+                                        ? null
+                                        : () => _toggleSelection(user),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                   ),
                 ),
-                
+
                 // Add Button
                 Container(
                   padding: const EdgeInsets.all(16),

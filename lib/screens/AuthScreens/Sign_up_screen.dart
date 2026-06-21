@@ -1,4 +1,3 @@
-
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -25,12 +24,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final confirmPasswordController = TextEditingController();
   final nameController = TextEditingController();
 
-  // User fields (كانت student)
   final universityController = TextEditingController();
   final facultyController = TextEditingController();
   final trackController = TextEditingController();
 
-  // Educator fields (للمشرف والمساعد)
   final positionController = TextEditingController();
   final departmentController = TextEditingController();
 
@@ -66,45 +63,43 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   void _handleSignUp() async {
-  if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) return;
 
-  final authCubit = context.read<AuthCubit>();
-  
-  // تحويل XFile إلى File
-  File? imageFile;
-  if (_imageFile != null) {
-    imageFile = File(_imageFile!.path);
+    final authCubit = context.read<AuthCubit>();
+
+    // تحويل XFile إلى File
+    File? imageFile;
+    if (_imageFile != null) {
+      imageFile = File(_imageFile!.path);
+    }
+
+    if (_selectedRole == UserRole.user) {
+      await authCubit.signUpUserWithImage(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+        fullName: nameController.text.trim(),
+        university: universityController.text.trim(),
+        faculty: facultyController.text.trim(),
+        track: trackController.text.trim(),
+        profileImage: imageFile,
+        context: context,
+      );
+    } else {
+      await authCubit.signUpEducatorWithImage(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+        fullName: nameController.text.trim(),
+        role: _selectedRole,
+        position: positionController.text.trim(),
+        department: departmentController.text.trim(),
+        profileImage: imageFile,
+        context: context,
+      );
+    }
   }
 
-  if (_selectedRole == UserRole.user) {
-    // استخدم الدالة الجديدة التي تستقبل File
-    await authCubit.signUpUserWithImage(
-      email: emailController.text.trim(),
-      password: passwordController.text.trim(),
-      fullName: nameController.text.trim(),
-      university: universityController.text.trim(),
-      faculty: facultyController.text.trim(),
-      track: trackController.text.trim(),
-      profileImage: imageFile,  // ← تمرير File بدلاً من String
-      context: context,
-    );
-  } else {
-    // استخدم الدالة الجديدة للمشرفين
-    await authCubit.signUpEducatorWithImage(
-      email: emailController.text.trim(),
-      password: passwordController.text.trim(),
-      fullName: nameController.text.trim(),
-      role: _selectedRole,
-      position: positionController.text.trim(),
-      department: departmentController.text.trim(),
-      profileImage: imageFile,  // ← تمرير File بدلاً من String
-      context: context,
-    );
-  }
-}
   @override
   Widget build(BuildContext context) {
-    // تحديد نص الدور للعرض
     String roleText = '';
     if (_selectedRole == UserRole.user) {
       roleText = 'User';
@@ -164,7 +159,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       const SizedBox(height: 10),
 
-                      // عرض الدور فقط بدون اختيار
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -405,5 +399,3 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 }
-
-

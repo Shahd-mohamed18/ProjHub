@@ -23,11 +23,9 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
   late TextEditingController _descriptionController;
   late TextEditingController _tagsController;
   late TextEditingController _githubController;
-  
-  // متغير منفصل للـ category بدلاً من TextEditingController
+
   late String _selectedCategory;
-  
-  // قائمة التصنيفات (نفس القائمة المستخدمة في AddProjectScreen)
+
   final List<String> _categories = [
     'E-Commerce',
     'Education',
@@ -60,7 +58,7 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
     super.initState();
     _initializeControllers();
     _initializeImages();
-    // تهيئة التصنيف المختار من المشروع الحالي
+
     _selectedCategory = widget.project.category;
   }
 
@@ -151,9 +149,9 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
 
   void _showSnackBar(String message, Color color) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: color)
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
   }
 
   Future<void> _submitForm() async {
@@ -194,7 +192,7 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
         authorName: widget.project.authorName,
         images: finalImageUrls,
         tags: tags.isEmpty ? ['General'] : tags,
-        category: _selectedCategory,  // استخدام المتغير المنفصل هنا
+        category: _selectedCategory,
         documentUrl: finalDocumentUrl,
         githubUrl: _githubController.text.trim().isNotEmpty
             ? _githubController.text.trim()
@@ -287,16 +285,21 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(color: Colors.grey.shade300),
-                            image: (_existingImages.isNotEmpty || _newCoverPhoto != null)
+                            image:
+                                (_existingImages.isNotEmpty ||
+                                    _newCoverPhoto != null)
                                 ? DecorationImage(
                                     image: _existingImages.isNotEmpty
                                         ? NetworkImage(_existingImages.first)
-                                        : FileImage(_newCoverPhoto!) as ImageProvider,
+                                        : FileImage(_newCoverPhoto!)
+                                              as ImageProvider,
                                     fit: BoxFit.cover,
                                   )
                                 : null,
                           ),
-                          child: (_existingImages.isEmpty && _newCoverPhoto == null)
+                          child:
+                              (_existingImages.isEmpty &&
+                                  _newCoverPhoto == null)
                               ? Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
@@ -326,7 +329,9 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                                         ),
                                         decoration: BoxDecoration(
                                           color: Colors.blue.withOpacity(0.8),
-                                          borderRadius: BorderRadius.circular(20),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
                                         ),
                                         child: const Text(
                                           'Cover',
@@ -387,7 +392,9 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(8),
                                       image: DecorationImage(
-                                        image: NetworkImage(_existingImages[index]),
+                                        image: NetworkImage(
+                                          _existingImages[index],
+                                        ),
                                         fit: BoxFit.cover,
                                       ),
                                     ),
@@ -507,7 +514,8 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                           fillColor: Colors.white,
                           filled: true,
                         ),
-                        validator: (v) => v?.isEmpty ?? true ? 'Please enter title' : null,
+                        validator: (v) =>
+                            v?.isEmpty ?? true ? 'Please enter title' : null,
                       ),
                       const SizedBox(height: 20),
 
@@ -531,7 +539,9 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                           fillColor: Colors.white,
                           filled: true,
                         ),
-                        validator: (v) => v?.isEmpty ?? true ? 'Please enter description' : null,
+                        validator: (v) => v?.isEmpty ?? true
+                            ? 'Please enter description'
+                            : null,
                       ),
                       const SizedBox(height: 20),
 
@@ -639,14 +649,20 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: _newDocument != null ? Colors.green : Colors.grey.shade300,
+                              color: _newDocument != null
+                                  ? Colors.green
+                                  : Colors.grey.shade300,
                             ),
                           ),
                           child: Row(
                             children: [
                               Icon(
-                                _newDocument != null ? Icons.check_circle : Icons.picture_as_pdf,
-                                color: _newDocument != null ? Colors.green : Colors.red,
+                                _newDocument != null
+                                    ? Icons.check_circle
+                                    : Icons.picture_as_pdf,
+                                color: _newDocument != null
+                                    ? Colors.green
+                                    : Colors.red,
                                 size: 30,
                               ),
                               const SizedBox(width: 12),
@@ -655,13 +671,17 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      _newDocument != null ? _documentName : 'Current Document',
+                                      _newDocument != null
+                                          ? _documentName
+                                          : 'Current Document',
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                     Text(
-                                      _newDocument != null ? 'Tap to change' : 'Tap to upload new PDF',
+                                      _newDocument != null
+                                          ? 'Tap to change'
+                                          : 'Tap to upload new PDF',
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Colors.grey.shade600,
@@ -670,7 +690,8 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                                   ],
                                 ),
                               ),
-                              if (_newDocument == null && widget.project.documentUrl.isNotEmpty)
+                              if (_newDocument == null &&
+                                  widget.project.documentUrl.isNotEmpty)
                                 IconButton(
                                   icon: const Icon(
                                     Icons.open_in_new,
@@ -679,7 +700,9 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                                   onPressed: () {
                                     context
                                         .read<ProjectCubit>()
-                                        .openProjectDocument(widget.project.documentUrl);
+                                        .openProjectDocument(
+                                          widget.project.documentUrl,
+                                        );
                                   },
                                 ),
                             ],
@@ -695,8 +718,10 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                             child: OutlinedButton(
                               onPressed: () => Navigator.pop(context),
                               style: OutlinedButton.styleFrom(
-                                backgroundColor:Colors.white,
-                                side: const BorderSide(color: Colors.blueAccent),
+                                backgroundColor: Colors.white,
+                                side: const BorderSide(
+                                  color: Colors.blueAccent,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -731,7 +756,7 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color:Colors.white
+                                  color: Colors.white,
                                 ),
                               ),
                             ),
@@ -751,7 +776,7 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     _tagsController.dispose();
-    // _categoryController محذوف لأنه لم يعد موجود
+
     _githubController.dispose();
     super.dispose();
   }

@@ -99,7 +99,7 @@ class ChatMessage {
 
 class ProjHubChatbotService {
   // ⚠️ ضع الـ API Key الصحيح هنا
-  static const String _apiKey = 'Your-Key-Here';
+  static const String _apiKey = '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';
   static const String _model  = 'llama-3.3-70b-versatile';
   static const String _url    = 'https://api.groq.com/openai/v1/chat/completions';
 

@@ -1,5 +1,3 @@
-
-
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -24,7 +22,6 @@ import 'package:onboard/services/notification_service.dart';
 import 'dart:io';
 import 'firebase_options.dart';
 
-// ✅ دالة لطلب إذن الإشعارات (لأندرويد 13+)
 Future<void> requestNotificationPermission() async {
   if (Platform.isAndroid) {
     try {
@@ -39,11 +36,9 @@ Future<void> requestNotificationPermission() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  
-  // ✅ طلب إذن الإشعارات
+
   await requestNotificationPermission();
-  
-  // ✅ تهيئة خدمة الإشعارات المحلية
+
   await NotificationService.initialize();
 
   runApp(const MyApp());
@@ -56,9 +51,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider<AuthCubit>(
-          create: (context) => AuthCubit()..initialize(),
-        ),
+        BlocProvider<AuthCubit>(create: (context) => AuthCubit()..initialize()),
         BlocProvider<ProjectCubit>(
           create: (context) => ProjectCubit()..loadProjects(),
         ),
@@ -70,7 +63,7 @@ class MyApp extends StatelessWidget {
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'ProjHub', 
+        title: 'ProjHub',
         initialRoute: '/onboarding',
         routes: {
           '/onboarding': (context) => const OnboardingScreen(),
