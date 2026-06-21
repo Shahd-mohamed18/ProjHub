@@ -1,13 +1,3 @@
-// lib/utils/api_verification.dart
-//
-// Run this once after setting useRealApi = true to confirm the backend
-// is reachable and the mapping works correctly.
-//
-// Usage — call from main.dart AFTER Firebase.initializeApp():
-//
-//   import 'package:onboard/utils/api_verification.dart';
-//   await ApiVerification.run();
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:onboard/repositories/api_community_repository.dart';
 
@@ -21,7 +11,9 @@ class ApiVerification {
 
     if (!useRealApi) {
       print('⚠️  useRealApi = false  →  mock data is active.');
-      print('   Set useRealApi = true in api_community_repository.dart to test.');
+      print(
+        '   Set useRealApi = true in api_community_repository.dart to test.',
+      );
       return;
     }
 

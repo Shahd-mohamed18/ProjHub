@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -294,7 +293,6 @@ class ChatsScreen extends StatelessWidget {
                                   ),
                                 ),
                               ).then((_) {
-                                // ✅ إضافة if (context.mounted) هنا
                                 if (context.mounted) {
                                   context.read<ChatCubit>().markMessagesAsRead(
                                     chat.userId,

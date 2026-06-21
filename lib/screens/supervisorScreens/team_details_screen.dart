@@ -1,9 +1,3 @@
-// lib/screens/supervisorScreens/team_details_screen.dart
-//
-// ✅ Supervisor creates posts/announcements from the Task screen (Post tab
-//    in CreateTaskScreen). The "+ Post" button has been removed from here.
-// ✅ Fixed: Total Tasks now shows the actual number of tasks for this team.
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -94,8 +88,6 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
     await _fetchTasksCount(); // ✅ refresh task count too
   }
 
-  // ── Add Task / Post ───────────────────────────────────────────────────────────
-
   void _navigateToCreateTask(BuildContext context) {
     final userModel = context.read<AuthCubit>().state.userModel;
     final supervisorId = userModel?.uid ?? '';
@@ -106,10 +98,7 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => BlocProvider(
-          create: (_) => SupervisorTaskCubit(
-            ApiTaskRepository(),
-            teamsCubit,
-          ),
+          create: (_) => SupervisorTaskCubit(ApiTaskRepository(), teamsCubit),
           child: CreateTaskScreen(
             supervisorId: supervisorId,
             supervisorName: supervisorName,
@@ -122,13 +111,10 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
     );
   }
 
-  // ── build ────────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     final isSupervisor = widget.userRole == UserRole.supervisor;
-    final canAddTask =
-        isSupervisor || widget.userRole == UserRole.assistant;
+    final canAddTask = isSupervisor || widget.userRole == UserRole.assistant;
 
     return BlocListener<TeamsCubit, TeamsState>(
       listenWhen: (prev, cur) => prev != cur,
@@ -150,11 +136,7 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
             gradient: LinearGradient(
               begin: Alignment(0.50, -0.00),
               end: Alignment(0.50, 1.00),
-              colors: [
-                Color(0xFFEFF6FF),
-                Color(0xFFF4F4F4),
-                Color(0xFF7D9FCA)
-              ],
+              colors: [Color(0xFFEFF6FF), Color(0xFFF4F4F4), Color(0xFF7D9FCA)],
             ),
           ),
           child: const Center(child: CircularProgressIndicator()),
@@ -170,11 +152,7 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
           gradient: LinearGradient(
             begin: Alignment(0.50, -0.00),
             end: Alignment(0.50, 1.00),
-            colors: [
-              Color(0xFFEFF6FF),
-              Color(0xFFF4F4F4),
-              Color(0xFF7D9FCA)
-            ],
+            colors: [Color(0xFFEFF6FF), Color(0xFFF4F4F4), Color(0xFF7D9FCA)],
           ),
         ),
         child: Column(
@@ -187,9 +165,10 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
-                      color: Color(0x3F000000),
-                      blurRadius: 4,
-                      offset: Offset(0, 1))
+                    color: Color(0x3F000000),
+                    blurRadius: 4,
+                    offset: Offset(0, 1),
+                  ),
                 ],
               ),
               child: Padding(
@@ -249,8 +228,7 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
                           children: [
                             if (canAddTask)
                               GestureDetector(
-                                onTap: () =>
-                                    _navigateToCreateTask(context),
+                                onTap: () => _navigateToCreateTask(context),
                                 child: const Text(
                                   '+ Add Task',
                                   style: TextStyle(
@@ -270,7 +248,6 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
                     const SizedBox(height: 22),
 
                     if (isSupervisor) ...[
-                      
                       _buildAddMembersButton(),
                       const SizedBox(height: 12),
                       _buildRemoveTeamButton(),
@@ -286,8 +263,6 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
     );
   }
 
-  // ── Cards ─────────────────────────────────────────────────────────────────
-
   Widget _buildProjectCard() {
     return Container(
       width: double.infinity,
@@ -299,14 +274,16 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
         ),
         shadows: const [
           BoxShadow(
-              color: Color(0x19000000),
-              blurRadius: 2,
-              offset: Offset(0, 1),
-              spreadRadius: -1),
+            color: Color(0x19000000),
+            blurRadius: 2,
+            offset: Offset(0, 1),
+            spreadRadius: -1,
+          ),
           BoxShadow(
-              color: Color(0x19000000),
-              blurRadius: 3,
-              offset: Offset(0, 1)),
+            color: Color(0x19000000),
+            blurRadius: 3,
+            offset: Offset(0, 1),
+          ),
         ],
       ),
       child: Padding(
@@ -326,9 +303,10 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
                     ),
                   ),
                   child: const Center(
-                    child: Text('👥',
-                        style: TextStyle(
-                            fontSize: 24, fontFamily: 'Arimo')),
+                    child: Text(
+                      '👥',
+                      style: TextStyle(fontSize: 24, fontFamily: 'Arimo'),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -339,17 +317,19 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
                       Text(
                         _team.projectName ?? 'No Project',
                         style: const TextStyle(
-                            color: Color(0xFF101727),
-                            fontSize: 16,
-                            fontFamily: 'Arimo'),
+                          color: Color(0xFF101727),
+                          fontSize: 16,
+                          fontFamily: 'Arimo',
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         '${_team.totalMembers} Members',
                         style: const TextStyle(
-                            color: Color(0xFF495565),
-                            fontSize: 14,
-                            fontFamily: 'Arimo'),
+                          color: Color(0xFF495565),
+                          fontSize: 14,
+                          fontFamily: 'Arimo',
+                        ),
                       ),
                     ],
                   ),
@@ -364,21 +344,22 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
                   child: Text(
                     _team.description ?? 'No description',
                     style: const TextStyle(
-                        color: Color(0xFF495565),
-                        fontSize: 14,
-                        fontFamily: 'Arimo',
-                        height: 1.43),
+                      color: Color(0xFF495565),
+                      fontSize: 16,
+                      fontFamily: 'Arimo',
+                      height: 1.43,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
-                const Text(
-                  'Add \nNotes',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      color: Color(0xFF155CFB),
-                      fontSize: 18,
-                      fontFamily: 'Arimo'),
-                ),
+                // const Text(
+                //   'Add \nNotes',
+                //   textAlign: TextAlign.center,
+                //   style: TextStyle(
+                //       color: Color(0xFF155CFB),
+                //       fontSize: 18,
+                //       fontFamily: 'Arimo'),
+                // ),
               ],
             ),
           ],
@@ -399,14 +380,16 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
         ),
         shadows: const [
           BoxShadow(
-              color: Color(0x19000000),
-              blurRadius: 2,
-              offset: Offset(0, 1),
-              spreadRadius: -1),
+            color: Color(0x19000000),
+            blurRadius: 2,
+            offset: Offset(0, 1),
+            spreadRadius: -1,
+          ),
           BoxShadow(
-              color: Color(0x19000000),
-              blurRadius: 3,
-              offset: Offset(0, 1)),
+            color: Color(0x19000000),
+            blurRadius: 3,
+            offset: Offset(0, 1),
+          ),
         ],
       ),
       child: Column(
@@ -416,17 +399,19 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
             '$_taskCount', // ✅ real task count
             textAlign: TextAlign.center,
             style: const TextStyle(
-                color: Color(0xFF155CFB),
-                fontSize: 24,
-                fontFamily: 'Arimo'),
+              color: Color(0xFF155CFB),
+              fontSize: 24,
+              fontFamily: 'Arimo',
+            ),
           ),
           const Text(
             'Total Tasks',
             textAlign: TextAlign.center,
             style: TextStyle(
-                color: Color(0xFF495565),
-                fontSize: 12,
-                fontFamily: 'Arimo'),
+              color: Color(0xFF495565),
+              fontSize: 12,
+              fontFamily: 'Arimo',
+            ),
           ),
         ],
       ),
@@ -444,14 +429,16 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
         ),
         shadows: const [
           BoxShadow(
-              color: Color(0x19000000),
-              blurRadius: 2,
-              offset: Offset(0, 1),
-              spreadRadius: -1),
+            color: Color(0x19000000),
+            blurRadius: 2,
+            offset: Offset(0, 1),
+            spreadRadius: -1,
+          ),
           BoxShadow(
-              color: Color(0x19000000),
-              blurRadius: 3,
-              offset: Offset(0, 1)),
+            color: Color(0x19000000),
+            blurRadius: 3,
+            offset: Offset(0, 1),
+          ),
         ],
       ),
       child: Column(
@@ -461,33 +448,32 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
           else
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('No assistants assigned yet',
-                  style: TextStyle(
-                      color: Colors.grey.shade600, fontSize: 14)),
+              child: Text(
+                'No assistants assigned yet',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+              ),
             ),
           if (_getStudents().isNotEmpty)
             ..._getStudents().map((s) => _buildStudentTile(s))
           else
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('No students assigned yet',
-                  style: TextStyle(
-                      color: Colors.grey.shade600, fontSize: 14)),
+              child: Text(
+                'No students assigned yet',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+              ),
             ),
         ],
       ),
     );
   }
 
-  
-
   Widget _buildAddMembersButton() {
     return GestureDetector(
       onTap: () async {
         final result = await Navigator.push(
           context,
-          MaterialPageRoute(
-              builder: (_) => AddMembersScreen(team: _team)),
+          MaterialPageRoute(builder: (_) => AddMembersScreen(team: _team)),
         );
         if (result == true && mounted) {
           await _refreshTeamDetails();
@@ -507,14 +493,18 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
         decoration: ShapeDecoration(
           color: const Color(0xFF155DFC),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10)),
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
         child: const Center(
-          child: Text('Add Members',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontFamily: 'Arimo')),
+          child: Text(
+            'Add Members',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontFamily: 'Arimo',
+            ),
+          ),
         ),
       ),
     );
@@ -534,23 +524,24 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
           ),
         ),
         child: const Center(
-          child: Text('Remove Team',
-              style: TextStyle(
-                  color: Color(0xFFE7000A),
-                  fontSize: 16,
-                  fontFamily: 'Arimo')),
+          child: Text(
+            'Remove Team',
+            style: TextStyle(
+              color: Color(0xFFE7000A),
+              fontSize: 16,
+              fontFamily: 'Arimo',
+            ),
+          ),
         ),
       ),
     );
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
-
   List<TeamMember> _getStudents() => _team.members.where((m) {
-        if (m.id == _team.supervisorId) return false;
-        if (m.position != null && m.position!.isNotEmpty) return false;
-        return true;
-      }).toList();
+    if (m.id == _team.supervisorId) return false;
+    if (m.position != null && m.position!.isNotEmpty) return false;
+    return true;
+  }).toList();
 
   Widget _buildAssistantTile(TeamMember a) {
     return Container(
@@ -559,8 +550,8 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
       decoration: const BoxDecoration(
         color: Color(0xFFFEF9C2),
         border: Border(
-            bottom:
-                BorderSide(width: 1.27, color: Color(0xFFF2F4F6))),
+          bottom: BorderSide(width: 1.27, color: Color(0xFFF2F4F6)),
+        ),
       ),
       child: Row(
         children: [
@@ -570,26 +561,35 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(a.name,
-                    style: const TextStyle(
-                        color: Color(0xFF101727),
-                        fontSize: 14,
-                        fontFamily: 'Arimo')),
-                Text(a.position ?? 'Assistant',
-                    style: const TextStyle(
-                        color: Color(0xFF697282),
-                        fontSize: 12,
-                        fontFamily: 'Arimo')),
+                Text(
+                  a.name,
+                  style: const TextStyle(
+                    color: Color(0xFF101727),
+                    fontSize: 14,
+                    fontFamily: 'Arimo',
+                  ),
+                ),
+                Text(
+                  a.position ?? 'Assistant',
+                  style: const TextStyle(
+                    color: Color(0xFF697282),
+                    fontSize: 12,
+                    fontFamily: 'Arimo',
+                  ),
+                ),
               ],
             ),
           ),
           GestureDetector(
             onTap: () => _goToChat(a),
-            child: const Text('Message',
-                style: TextStyle(
-                    color: Color(0xFF155CFB),
-                    fontSize: 14,
-                    fontFamily: 'Arimo')),
+            child: const Text(
+              'Message',
+              style: TextStyle(
+                color: Color(0xFF155CFB),
+                fontSize: 14,
+                fontFamily: 'Arimo',
+              ),
+            ),
           ),
         ],
       ),
@@ -602,8 +602,8 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
       padding: const EdgeInsets.all(12),
       decoration: const BoxDecoration(
         border: Border(
-            bottom:
-                BorderSide(width: 1.27, color: Color(0xFFF2F4F6))),
+          bottom: BorderSide(width: 1.27, color: Color(0xFFF2F4F6)),
+        ),
       ),
       child: Row(
         children: [
@@ -613,26 +613,35 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(s.name,
-                    style: const TextStyle(
-                        color: Color(0xFF101727),
-                        fontSize: 14,
-                        fontFamily: 'Arimo')),
-                Text(s.role ?? 'Student',
-                    style: const TextStyle(
-                        color: Color(0xFF697282),
-                        fontSize: 12,
-                        fontFamily: 'Arimo')),
+                Text(
+                  s.name,
+                  style: const TextStyle(
+                    color: Color(0xFF101727),
+                    fontSize: 14,
+                    fontFamily: 'Arimo',
+                  ),
+                ),
+                Text(
+                  s.role ?? 'Student',
+                  style: const TextStyle(
+                    color: Color(0xFF697282),
+                    fontSize: 12,
+                    fontFamily: 'Arimo',
+                  ),
+                ),
               ],
             ),
           ),
           GestureDetector(
             onTap: () => _goToChat(s),
-            child: const Text('Message',
-                style: TextStyle(
-                    color: Color(0xFF155CFB),
-                    fontSize: 14,
-                    fontFamily: 'Arimo')),
+            child: const Text(
+              'Message',
+              style: TextStyle(
+                color: Color(0xFF155CFB),
+                fontSize: 14,
+                fontFamily: 'Arimo',
+              ),
+            ),
           ),
         ],
       ),
@@ -662,8 +671,8 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
           decoration: BoxDecoration(
             color: url == null || url.isEmpty
                 ? (isAssistant
-                    ? Colors.purple.withOpacity(0.1)
-                    : Colors.blue.withOpacity(0.1))
+                      ? Colors.purple.withOpacity(0.1)
+                      : Colors.blue.withOpacity(0.1))
                 : Colors.transparent,
             shape: BoxShape.circle,
           ),
@@ -690,44 +699,56 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
 
   Widget _avatarContent(TeamMember m, String? url, bool isAssistant) {
     final color = isAssistant ? Colors.purple : Colors.blue;
-    final initials =
-        m.name.isNotEmpty ? m.name[0].toUpperCase() : '?';
+    final initials = m.name.isNotEmpty ? m.name[0].toUpperCase() : '?';
     if (url == null || url.isEmpty) {
       return Center(
-          child: Text(initials,
-              style: TextStyle(
-                  color: color,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold)));
+        child: Text(
+          initials,
+          style: TextStyle(
+            color: color,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
     }
     if (url.startsWith('http')) {
       return ClipOval(
-          child: Image.network(url,
-              width: 40,
-              height: 40,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Center(
-                  child: Text(initials,
-                      style: TextStyle(color: color, fontSize: 16)))));
+        child: Image.network(
+          url,
+          width: 40,
+          height: 40,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Center(
+            child: Text(initials, style: TextStyle(color: color, fontSize: 16)),
+          ),
+        ),
+      );
     }
     if (url.startsWith('assets')) {
       return ClipOval(
-          child: Image.asset(url,
-              width: 40,
-              height: 40,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Center(
-                  child: Text(initials,
-                      style: TextStyle(color: color, fontSize: 16)))));
+        child: Image.asset(
+          url,
+          width: 40,
+          height: 40,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Center(
+            child: Text(initials, style: TextStyle(color: color, fontSize: 16)),
+          ),
+        ),
+      );
     }
     return ClipOval(
-        child: Image.file(File(url),
-            width: 40,
-            height: 40,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Center(
-                child: Text(initials,
-                    style: TextStyle(color: color, fontSize: 16)))));
+      child: Image.file(
+        File(url),
+        width: 40,
+        height: 40,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Center(
+          child: Text(initials, style: TextStyle(color: color, fontSize: 16)),
+        ),
+      ),
+    );
   }
 
   void _showDeleteDialog(BuildContext ctx) {
@@ -738,39 +759,47 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
         content: Text('Remove "${_team.name}"?'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(dlg),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(dlg),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () async {
               Navigator.pop(dlg);
-              final snack =
-                  ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
-                content: Row(children: [
-                  SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white)),
-                  SizedBox(width: 12),
-                  Text('Removing team…'),
-                ]),
-                backgroundColor: Colors.blue,
-                duration: Duration(days: 1),
-              ));
-              final ok =
-                  await ctx.read<TeamsCubit>().deleteTeam(_team.id);
+              final snack = ScaffoldMessenger.of(ctx).showSnackBar(
+                const SnackBar(
+                  content: Row(
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Text('Removing team…'),
+                    ],
+                  ),
+                  backgroundColor: Colors.blue,
+                  duration: Duration(days: 1),
+                ),
+              );
+              final ok = await ctx.read<TeamsCubit>().deleteTeam(_team.id);
               if (mounted) snack.close();
               if (mounted) {
-                ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                  content:
-                      Text(ok ? 'Team removed' : 'Failed to remove team'),
-                  backgroundColor: ok ? Colors.green : Colors.red,
-                  behavior: SnackBarBehavior.floating,
-                ));
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      ok ? 'Team removed' : 'Failed to remove team',
+                    ),
+                    backgroundColor: ok ? Colors.green : Colors.red,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
               }
             },
-            style:
-                TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Remove'),
           ),
         ],

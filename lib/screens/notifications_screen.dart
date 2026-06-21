@@ -29,12 +29,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   String _getTimeAgo(DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
-    
+
     if (difference.inDays > 7) {
       return '${(difference.inDays / 7).floor()} weeks ago';
     }
     if (difference.inDays >= 1) {
-      return difference.inDays == 1 ? 'Yesterday' : '${difference.inDays} days ago';
+      return difference.inDays == 1
+          ? 'Yesterday'
+          : '${difference.inDays} days ago';
     }
     if (difference.inHours >= 1) {
       return '${difference.inHours} hour${difference.inHours > 1 ? 's' : ''} ago';
@@ -64,10 +66,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget build(BuildContext context) {
     final authState = context.watch<AuthCubit>().state;
     final userId = authState.userModel?.uid ?? '';
-    
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notifications', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Notifications',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         // centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 0,
@@ -98,24 +103,33 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             if (state is NotificationLoading) {
               return const Center(child: CircularProgressIndicator());
             }
-            
+
             if (state is NotificationsLoaded) {
               if (state.notifications.isEmpty) {
                 return const Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.notifications_none, size: 64, color: Colors.grey),
+                      Icon(
+                        Icons.notifications_none,
+                        size: 64,
+                        color: Colors.grey,
+                      ),
                       SizedBox(height: 16),
-                      Text('No notifications available', style: TextStyle(fontSize: 16)),
+                      Text(
+                        'No notifications available',
+                        style: TextStyle(fontSize: 16),
+                      ),
                     ],
                   ),
                 );
               }
-              
+
               return RefreshIndicator(
                 onRefresh: () async {
-                  await context.read<NotificationCubit>().loadNotifications(userId);
+                  await context.read<NotificationCubit>().loadNotifications(
+                    userId,
+                  );
                 },
                 child: ListView.builder(
                   padding: const EdgeInsets.all(16),
@@ -124,11 +138,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     final notif = state.notifications[index];
                     final timeAgo = _getTimeAgo(notif.createdAt);
                     final isRead = notif.isRead;
-                    
+
                     return GestureDetector(
                       onTap: () {
                         if (!isRead) {
-                          context.read<NotificationCubit>().markAsRead(notif.id, userId);
+                          context.read<NotificationCubit>().markAsRead(
+                            notif.id,
+                            userId,
+                          );
                         }
                       },
                       child: Container(
@@ -152,7 +169,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: isRead ? Colors.grey[200] : Colors.blue[100],
+                                color: isRead
+                                    ? Colors.grey[200]
+                                    : Colors.blue[100],
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Icon(
@@ -169,7 +188,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                   Text(
                                     notif.title,
                                     style: TextStyle(
-                                      fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+                                      fontWeight: isRead
+                                          ? FontWeight.normal
+                                          : FontWeight.bold,
                                       fontSize: 16,
                                     ),
                                   ),
@@ -214,13 +235,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
               );
             }
-            
+
             if (state is NotificationError) {
               return Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                    const Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: Colors.red,
+                    ),
                     const SizedBox(height: 16),
                     Text(state.message),
                     const SizedBox(height: 16),
@@ -232,7 +257,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
               );
             }
-            
+
             return const SizedBox();
           },
         ),

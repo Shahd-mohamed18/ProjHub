@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/auth/auth_cubit.dart';
@@ -61,7 +60,6 @@ class WelcomeScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 60),
 
-                    // User (كان Student)
                     GestureDetector(
                       onTap: () {
                         context.read<AuthCubit>().setTempRole(UserRole.user);
@@ -82,10 +80,11 @@ class WelcomeScreen extends StatelessWidget {
 
                     const SizedBox(height: 15),
 
-                    // Supervisor (كان Doctor)
                     GestureDetector(
                       onTap: () {
-                        context.read<AuthCubit>().setTempRole(UserRole.supervisor);
+                        context.read<AuthCubit>().setTempRole(
+                          UserRole.supervisor,
+                        );
                         Navigator.push(
                           context,
                           MaterialPageRoute(

@@ -38,6 +38,7 @@ dependencies:
   flutter_local_notifications: ^20.1.0
   flutter_markdown: ^0.7.3
   signalr_netcore: ^1.4.4
+  webview_flutter: ^4.13.1
 
 dev_dependencies:
   flutter_test:

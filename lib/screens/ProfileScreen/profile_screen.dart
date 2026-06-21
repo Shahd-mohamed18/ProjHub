@@ -1,5 +1,3 @@
-
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -271,79 +269,77 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // ==================== ✅ دالة عرض الصورة المحسنة ====================
   Widget _buildProfileImage(UserModel userModel) {
-  const placeholder = Icon(Icons.person, size: 50, color: Color(0xFF1E3A8A));
-  const placeholderBg = Color(0xFFDBEAFE);
+    const placeholder = Icon(Icons.person, size: 50, color: Color(0xFF1E3A8A));
+    const placeholderBg = Color(0xFFDBEAFE);
 
-  Widget withBg(Widget child) => Container(
-        width: 128,
-        height: 128,
-        decoration: const BoxDecoration(
-          color: placeholderBg,
-          shape: BoxShape.circle,
+    Widget withBg(Widget child) => Container(
+      width: 128,
+      height: 128,
+      decoration: const BoxDecoration(
+        color: placeholderBg,
+        shape: BoxShape.circle,
+      ),
+      child: ClipOval(child: child),
+    );
+
+    final url = userModel.photoUrl;
+
+    if (url == null || url.isEmpty) {
+      print('❌ No photo URL for user: ${userModel.uid}');
+      return withBg(placeholder);
+    }
+
+    print('🖼️ Loading profile image from: $url');
+
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return withBg(
+        Image.network(
+          url,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded /
+                          loadingProgress.expectedTotalBytes!
+                    : null,
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Failed to load network image: $error');
+
+            return placeholder;
+          },
         ),
-        child: ClipOval(child: child),
       );
+    }
 
-  final url = userModel.photoUrl;
-
-  if (url == null || url.isEmpty) {
-    print('❌ No photo URL for user: ${userModel.uid}');
-    return withBg(placeholder);
-  }
-
-  print('🖼️ Loading profile image from: $url');
-
-  // ✅ دائماً نتعامل مع الرابط كـ NetworkImage إذا كان يبدأ بـ http
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    return withBg(
-      Image.network(
-        url,
-        fit: BoxFit.cover,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Center(
-            child: CircularProgressIndicator(
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded /
-                      loadingProgress.expectedTotalBytes!
-                  : null,
+    if (url.startsWith('/data/') || url.startsWith('/storage/')) {
+      try {
+        final file = File(url);
+        if (file.existsSync()) {
+          return withBg(
+            Image.file(
+              file,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => placeholder,
             ),
           );
-        },
-        errorBuilder: (context, error, stackTrace) {
-          print('❌ Failed to load network image: $error');
-          // ✅ يمكن إضافة منطق لإعادة المحاولة هنا
-          return placeholder;
-        },
-      ),
-    );
-  }
-
-  // ✅ إذا كان مساراً محلياً
-  if (url.startsWith('/data/') || url.startsWith('/storage/')) {
-    try {
-      final file = File(url);
-      if (file.existsSync()) {
-        return withBg(
-          Image.file(
-            file,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => placeholder,
-          ),
-        );
-      } else {
-        print('⚠️ Local file does not exist: $url');
+        } else {
+          print('⚠️ Local file does not exist: $url');
+        }
+      } catch (e) {
+        print('⚠️ Error loading local file: $e');
       }
-    } catch (e) {
-      print('⚠️ Error loading local file: $e');
+      return withBg(placeholder);
     }
+
     return withBg(placeholder);
   }
 
-  return withBg(placeholder);
-}
   Widget _buildActionButtons(BuildContext context, UserModel userModel) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -668,7 +664,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ==================== ✅ دالة عرض صورة المشروع المحسنة ====================
   Widget _buildProjectImage(Project project) {
     if (project.images.isEmpty) {
       return const Icon(
@@ -680,7 +675,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final imageUrl = project.images.first;
 
-    // ✅ إذا كان URL من الشبكة
     if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
       return Image.network(
         imageUrl,
@@ -689,9 +683,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         height: double.infinity,
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
+          return const Center(child: CircularProgressIndicator());
         },
         errorBuilder: (_, __, ___) => const Icon(
           Icons.business_center,
@@ -701,7 +693,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
 
-    // ✅ إذا كان مسار محلي
     if (imageUrl.startsWith('/data/') || imageUrl.startsWith('/storage/')) {
       try {
         final file = File(imageUrl);
@@ -723,7 +714,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
 
-    // ✅ Fallback
     return const Icon(
       Icons.business_center,
       size: 40,

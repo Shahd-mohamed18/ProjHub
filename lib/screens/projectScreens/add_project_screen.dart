@@ -1,5 +1,3 @@
-
-
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -34,7 +32,6 @@ class _AddProjectScreenState extends State<AddProjectScreen> {
 
   final ImagePicker _imagePicker = ImagePicker();
 
-  // قائمة التصنيفات
   final List<String> _categories = [
     'E-Commerce',
     'Education',
@@ -110,19 +107,19 @@ class _AddProjectScreenState extends State<AddProjectScreen> {
   }
 
   void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: color),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
   }
 
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     if (_coverPhoto == null) {
       _showSnackBar('Please add a cover photo', Colors.red);
       return;
     }
-    
+
     if (_selectedDocument == null) {
       _showSnackBar('Please upload your project document (PDF)', Colors.red);
       return;
@@ -134,12 +131,11 @@ class _AddProjectScreenState extends State<AddProjectScreen> {
       return;
     }
 
-    
     final userDoc = await FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
         .get();
-    
+
     final userData = userDoc.data();
     final authorName = userData?['fullName'] ?? user.displayName ?? 'User';
 
@@ -206,7 +202,13 @@ class _AddProjectScreenState extends State<AddProjectScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Cover Photo Section
-                      const Text('Cover Photo *', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Cover Photo *',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       GestureDetector(
                         onTap: _pickCoverPhoto,
@@ -221,14 +223,26 @@ class _AddProjectScreenState extends State<AddProjectScreen> {
                           child: _coverPhoto != null
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(16),
-                                  child: Image.file(_coverPhoto!, fit: BoxFit.cover),
+                                  child: Image.file(
+                                    _coverPhoto!,
+                                    fit: BoxFit.cover,
+                                  ),
                                 )
                               : Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.cloud_upload, size: 50, color: Colors.grey.shade400),
+                                    Icon(
+                                      Icons.cloud_upload,
+                                      size: 50,
+                                      color: Colors.grey.shade400,
+                                    ),
                                     const SizedBox(height: 8),
-                                    Text('Tap to upload cover photo', style: TextStyle(color: Colors.grey.shade600)),
+                                    Text(
+                                      'Tap to upload cover photo',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
                                   ],
                                 ),
                         ),
@@ -236,7 +250,13 @@ class _AddProjectScreenState extends State<AddProjectScreen> {
                       const SizedBox(height: 20),
 
                       // Additional Images
-                      const Text('Additional Images For UI', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Additional Images For UI',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       if (_additionalImages.isNotEmpty)
                         SizedBox(
@@ -253,17 +273,30 @@ class _AddProjectScreenState extends State<AddProjectScreen> {
                                     margin: const EdgeInsets.only(right: 8),
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(8),
-                                      image: DecorationImage(image: FileImage(_additionalImages[index]), fit: BoxFit.cover),
+                                      image: DecorationImage(
+                                        image: FileImage(
+                                          _additionalImages[index],
+                                        ),
+                                        fit: BoxFit.cover,
+                                      ),
                                     ),
                                   ),
                                   Positioned(
                                     right: 4,
                                     top: 4,
                                     child: GestureDetector(
-                                      onTap: () => _removeAdditionalImage(index),
+                                      onTap: () =>
+                                          _removeAdditionalImage(index),
                                       child: Container(
-                                        decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                                        child: const Icon(Icons.close, size: 16, color: Colors.white),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.red,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.close,
+                                          size: 16,
+                                          color: Colors.white,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -277,49 +310,79 @@ class _AddProjectScreenState extends State<AddProjectScreen> {
                         onPressed: _pickAdditionalImages,
                         icon: const Icon(Icons.add_photo_alternate_outlined),
                         label: const Text('Add Images'),
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade200, foregroundColor: Colors.black),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey.shade200,
+                          foregroundColor: Colors.black,
+                        ),
                       ),
                       const SizedBox(height: 24),
 
                       // Title
-                      const Text('Project Title *', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Project Title *',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _titleController,
                         decoration: InputDecoration(
                           hintText: 'Enter project name',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           fillColor: Colors.white,
                           filled: true,
                         ),
-                        validator: (v) => v?.isEmpty ?? true ? 'Please enter title' : null,
+                        validator: (v) =>
+                            v?.isEmpty ?? true ? 'Please enter title' : null,
                       ),
                       const SizedBox(height: 20),
 
                       // Description
-                      const Text('Description *', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Description *',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _descriptionController,
                         maxLines: 4,
                         decoration: InputDecoration(
                           hintText: 'Describe your project',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           fillColor: Colors.white,
                           filled: true,
                         ),
-                        validator: (v) => v?.isEmpty ?? true ? 'Please enter description' : null,
+                        validator: (v) => v?.isEmpty ?? true
+                            ? 'Please enter description'
+                            : null,
                       ),
                       const SizedBox(height: 20),
 
                       // Tags
-                      const Text('Tags', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Tags',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _tagsController,
                         decoration: InputDecoration(
                           hintText: 'Flutter, AI, Mobile (comma separated)',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           fillColor: Colors.white,
                           filled: true,
                         ),
@@ -327,31 +390,59 @@ class _AddProjectScreenState extends State<AddProjectScreen> {
                       const SizedBox(height: 20),
 
                       // Category
-                      const Text('Category *', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Category *',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        value: _categoryController.text.isEmpty ? null : _categoryController.text,
+                        value: _categoryController.text.isEmpty
+                            ? null
+                            : _categoryController.text,
                         hint: const Text('Select category'),
-                        items: _categories.map((cat) => DropdownMenuItem(value: cat, child: Text(cat))).toList(),
-                        onChanged: (value) => setState(() => _categoryController.text = value ?? ''),
+                        items: _categories
+                            .map(
+                              (cat) => DropdownMenuItem(
+                                value: cat,
+                                child: Text(cat),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) => setState(
+                          () => _categoryController.text = value ?? '',
+                        ),
                         decoration: InputDecoration(
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           fillColor: Colors.white,
                           filled: true,
                         ),
-                        validator: (v) => v == null ? 'Please select category' : null,
+                        validator: (v) =>
+                            v == null ? 'Please select category' : null,
                       ),
                       const SizedBox(height: 20),
 
                       // GitHub URL
-                      const Text('GitHub URL (Optional)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'GitHub URL (Optional)',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _githubController,
                         decoration: InputDecoration(
                           hintText: 'https://github.com/...',
                           prefixIcon: const Icon(Icons.link),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           fillColor: Colors.white,
                           filled: true,
                         ),
@@ -359,7 +450,13 @@ class _AddProjectScreenState extends State<AddProjectScreen> {
                       const SizedBox(height: 20),
 
                       // Document
-                      const Text('Project Document (PDF) *', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Project Document (PDF) *',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       GestureDetector(
                         onTap: _pickDocument,
@@ -369,30 +466,62 @@ class _AddProjectScreenState extends State<AddProjectScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: _selectedDocument != null ? Colors.green : Colors.grey.shade300),
+                            border: Border.all(
+                              color: _selectedDocument != null
+                                  ? Colors.green
+                                  : Colors.grey.shade300,
+                            ),
                           ),
                           child: _selectedDocument != null
                               ? Row(
                                   children: [
-                                    const Icon(Icons.picture_as_pdf, color: Colors.red, size: 40),
+                                    const Icon(
+                                      Icons.picture_as_pdf,
+                                      color: Colors.red,
+                                      size: 40,
+                                    ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          Text(_documentName, style: const TextStyle(fontWeight: FontWeight.w500)),
-                                          const Text('Tap to change', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                          Text(
+                                            _documentName,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          const Text(
+                                            'Tap to change',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ),
-                                    const Icon(Icons.check_circle, color: Colors.green),
+                                    const Icon(
+                                      Icons.check_circle,
+                                      color: Colors.green,
+                                    ),
                                   ],
                                 )
                               : Column(
                                   children: [
-                                    Icon(Icons.cloud_upload, size: 40, color: Colors.grey.shade400),
+                                    Icon(
+                                      Icons.cloud_upload,
+                                      size: 40,
+                                      color: Colors.grey.shade400,
+                                    ),
                                     const SizedBox(height: 8),
-                                    Text('Tap to upload PDF', style: TextStyle(color: Colors.grey.shade600)),
+                                    Text(
+                                      'Tap to upload PDF',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
                                   ],
                                 ),
                         ),
@@ -407,9 +536,18 @@ class _AddProjectScreenState extends State<AddProjectScreen> {
                           onPressed: _submitForm,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xff155DFC),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
-                          child: const Text('Upload Project', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600 , color:Colors.white)),
+                          child: const Text(
+                            'Upload Project',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
                         ),
                       ),
                     ],

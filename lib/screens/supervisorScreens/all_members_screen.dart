@@ -36,14 +36,13 @@ class _AllMembersScreenState extends State<AllMembersScreen> {
 
     for (var team in widget.teams) {
       try {
-        
         final teamDetails = await teamApiService.getTeamDetails(team.id);
-        
+
         if (teamDetails != null) {
           print('📋 Team: ${teamDetails.name}');
           print('   Assistants: ${teamDetails.assistants.length}');
           print('   Members: ${teamDetails.members.length}');
-          
+
           // Add assistants
           for (var assistant in teamDetails.assistants) {
             if (!membersMap.containsKey(assistant.id)) {
@@ -57,17 +56,15 @@ class _AllMembersScreenState extends State<AllMembersScreen> {
             }
           }
 
-          // Add members (students only, exclude supervisor)
           for (var member in teamDetails.members) {
-            // استبعاد المشرف (الدكتور)
             if (member.id == teamDetails.supervisorId) {
               continue;
             }
-            // استبعاد المعيدين (اللي عندهم position)
+
             if (member.position != null && member.position!.isNotEmpty) {
               continue;
             }
-            
+
             if (!membersMap.containsKey(member.id)) {
               membersMap[member.id] = MemberWithTeam(
                 member: member,
@@ -81,7 +78,7 @@ class _AllMembersScreenState extends State<AllMembersScreen> {
         }
       } catch (e) {
         print('⚠️ Error fetching team details for ${team.id}: $e');
-        // Fallback: استخدام البيانات الموجودة
+
         for (var assistant in team.assistants) {
           if (!membersMap.containsKey(assistant.id)) {
             membersMap[assistant.id] = MemberWithTeam(
@@ -97,7 +94,7 @@ class _AllMembersScreenState extends State<AllMembersScreen> {
         for (var member in team.members) {
           if (member.id == team.supervisorId) continue;
           if (member.position != null && member.position!.isNotEmpty) continue;
-          
+
           if (!membersMap.containsKey(member.id)) {
             membersMap[member.id] = MemberWithTeam(
               member: member,
@@ -112,18 +109,19 @@ class _AllMembersScreenState extends State<AllMembersScreen> {
     }
 
     final members = membersMap.values.toList();
-    
+
     setState(() {
       _assistants = members.where((m) => m.role == 'Assistant').toList();
       _students = members.where((m) => m.role != 'Assistant').toList();
       _totalMembers = members.length;
       _isLoading = false;
     });
-    
-    print('📊 Final counts - Assistants: ${_assistants.length}, Students: ${_students.length}, Total: $_totalMembers');
+
+    print(
+      '📊 Final counts - Assistants: ${_assistants.length}, Students: ${_students.length}, Total: $_totalMembers',
+    );
   }
 
-  // ✅ دالة للتنقل إلى شاشة الشات
   void _navigateToChat(TeamMember member) {
     Navigator.push(
       context,
@@ -239,7 +237,9 @@ class _AllMembersScreenState extends State<AllMembersScreen> {
                           children: [
                             // Tabs
                             Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 16),
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(8),
@@ -260,7 +260,10 @@ class _AllMembersScreenState extends State<AllMembersScreen> {
                             Expanded(
                               child: TabBarView(
                                 children: [
-                                  _buildMembersList(_assistants, isAssistant: true),
+                                  _buildMembersList(
+                                    _assistants,
+                                    isAssistant: true,
+                                  ),
                                   _buildMembersList(_students),
                                 ],
                               ),
@@ -301,10 +304,7 @@ class _AllMembersScreenState extends State<AllMembersScreen> {
           const SizedBox(width: 4),
           Text(
             '$label: $count',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -437,7 +437,6 @@ class _AllMembersScreenState extends State<AllMembersScreen> {
                 ),
               ),
 
-              // ✅ Message button - نفس طريقة TeamDetailsScreen
               GestureDetector(
                 onTap: () => _navigateToChat(member),
                 child: Container(

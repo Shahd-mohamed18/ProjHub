@@ -28,7 +28,6 @@ class AccessDeniedScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // رمز القفل أو المنع
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -43,7 +42,6 @@ class AccessDeniedScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 32),
 
-                  // عنوان الصفحة
                   const Text(
                     'Access Denied',
                     style: TextStyle(
@@ -54,7 +52,6 @@ class AccessDeniedScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
 
-                  // رسالة المنع حسب الدور
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -95,7 +92,6 @@ class AccessDeniedScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 32),
 
-                  // زر العودة
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context),
                     style: ElevatedButton.styleFrom(
@@ -127,7 +123,6 @@ class AccessDeniedScreen extends StatelessWidget {
 
                   const SizedBox(height: 16),
 
-                  // نص إضافي توضيحي
                   Text(
                     'Only students are allowed to upload projects',
                     style: TextStyle(fontSize: 12, color: Colors.black),

@@ -85,7 +85,7 @@ ProjHub is a collaborative academic platform that connects students, supervisors
 // ──────────────────────────────────────────────
 
 class ChatMessage {
-  final String role;    // 'user' or 'assistant'
+  final String role; // 'user' or 'assistant'
   final String content;
 
   ChatMessage({required this.role, required this.content});
@@ -99,9 +99,9 @@ class ChatMessage {
 
 class ProjHubChatbotService {
   // ⚠️ ضع الـ API Key الصحيح هنا
-  static const String _apiKey = 'Your-Key-Here';
-  static const String _model  = 'llama-3.3-70b-versatile';
-  static const String _url    = 'https://api.groq.com/openai/v1/chat/completions';
+  static const String _apiKey = 'key';
+  static const String _model = 'llama-3.3-70b-versatile';
+  static const String _url = 'https://api.groq.com/openai/v1/chat/completions';
 
   // الـ conversation history
   final List<ChatMessage> _history = [];
