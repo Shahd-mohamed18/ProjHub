@@ -1,4 +1,5 @@
 // lib/screens/community/community_profile_tab.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -84,7 +85,7 @@ class CommunityProfileTab extends StatelessWidget {
   }
 }
 
-// ✅ Card خاص بالـ Profile - بيضيف قائمة (⋮) لكل بوست
+// ✅ Card الخاص بالـ Profile - بيضيف قائمة (⋮) لكل بوست
 class _MyPostCard extends StatelessWidget {
   final PostModel post;
   const _MyPostCard({required this.post});
@@ -106,7 +107,7 @@ class _MyPostCard extends StatelessWidget {
           // Header: Avatar + Name + Time + Menu
           Row(
             children: [
-              _avatar(post.userInitial),
+              _avatar(post.userInitial, post.userPhotoUrl), // ✅ تمرير الصورة
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -121,17 +122,14 @@ class _MyPostCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // ✅ Visibility badge دايماً ظاهر
               _VisibilityBadge(visibility: post.visibility),
               const SizedBox(width: 4),
-              // ✅ قائمة (⋮)
               _PostMenu(post: post),
             ],
           ),
           const SizedBox(height: 12),
           Text(post.content, style: const TextStyle(fontSize: 14)),
           const SizedBox(height: 8),
-          // Hashtags
           if (post.hashtags.isNotEmpty)
             Wrap(
               spacing: 8,
@@ -141,7 +139,6 @@ class _MyPostCard extends StatelessWidget {
                           color: Color(0xFF155DFC), fontSize: 12)))
                   .toList(),
             ),
-          // Attachment
           if (post.attachmentName != null) ...[
             const SizedBox(height: 8),
             _PostAttachmentCard(attachmentName: post.attachmentName!),
@@ -149,7 +146,6 @@ class _MyPostCard extends StatelessWidget {
           const SizedBox(height: 12),
           const Divider(height: 1),
           const SizedBox(height: 8),
-          // Actions
           Row(
             children: [
               GestureDetector(
@@ -200,7 +196,20 @@ class _MyPostCard extends StatelessWidget {
     );
   }
 
-  Widget _avatar(String initial) {
+  // ✅ Avatar معدل عشان يعرض الصورة لو موجودة
+  Widget _avatar(String initial, String? photoUrl) {
+    if (photoUrl != null && photoUrl.isNotEmpty) {
+      return CircleAvatar(
+        radius: 20,
+        backgroundImage: NetworkImage(photoUrl),
+        onBackgroundImageError: (_, __) => _fallbackAvatar(initial),
+        child: null,
+      );
+    }
+    return _fallbackAvatar(initial);
+  }
+
+  Widget _fallbackAvatar(String initial) {
     return Container(
       width: 40,
       height: 40,
@@ -210,8 +219,7 @@ class _MyPostCard extends StatelessWidget {
       ),
       child: Center(
         child: Text(initial,
-            style:
-                const TextStyle(color: Color(0xFF155DFC), fontSize: 14)),
+            style: const TextStyle(color: Color(0xFF155DFC), fontSize: 14)),
       ),
     );
   }
@@ -228,7 +236,6 @@ class _PostMenu extends StatelessWidget {
       icon: const Icon(Icons.more_vert, size: 20, color: Color(0xFF6A7282)),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       itemBuilder: (_) => [
-        // ── Change Visibility ──
         const PopupMenuItem(
           enabled: false,
           child: Text('Change Visibility',
@@ -249,9 +256,7 @@ class _PostMenu extends StatelessWidget {
           label: 'My Team',
           isSelected: post.visibility == PostVisibility.myTeam,
         ),
-        // ── Divider ──
         const PopupMenuDivider(),
-        // ── Delete ──
         const PopupMenuItem(
           value: 'delete',
           child: Row(
@@ -353,7 +358,7 @@ class _PostMenu extends StatelessWidget {
   }
 }
 
-// ✅ Badge الـ visibility - بيظهر دايماً في الـ Profile
+// ✅ Badge الـ visibility
 class _VisibilityBadge extends StatelessWidget {
   final PostVisibility visibility;
   const _VisibilityBadge({required this.visibility});
@@ -408,9 +413,7 @@ class _VisibilityBadge extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────
-// Post Attachment — network URL → Image.network
-//                  local path  → Image.file
-//                  else        → file chip
+// Post Attachment — network / local / fallback
 // ─────────────────────────────────────────────
 class _PostAttachmentCard extends StatelessWidget {
   final String attachmentName;

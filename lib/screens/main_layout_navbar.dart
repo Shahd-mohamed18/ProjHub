@@ -73,7 +73,7 @@ class _MainLayoutNavbarState extends State<MainLayoutNavbar> {
                 ],
               ),
             ),
-            bottomNavigationBar: _buildBottomNavBar(),
+            bottomNavigationBar: _buildBottomNavBar(), // ✅ استخدام SafeArea
           ),
         );
       },
@@ -84,7 +84,7 @@ class _MainLayoutNavbarState extends State<MainLayoutNavbar> {
     switch (user.role) {
       case UserRole.supervisor:
       case UserRole.assistant:
-        return  SupervisorHomeScreen(); // ✅ مع const
+        return SupervisorHomeScreen();
       case UserRole.user:
       default:
         return const HomeScreen();
@@ -92,60 +92,63 @@ class _MainLayoutNavbarState extends State<MainLayoutNavbar> {
   }
 
   Widget _buildBottomNavBar() {
-    return Container(
-      height: 65, // ✅ قللناها شوية
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(25),
-          topRight: Radius.circular(25),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
+    return SafeArea(
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(25),
+            topRight: Radius.circular(25),
           ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: currentIndex,
-          onTap: (index) {
-            setState(() {
-              currentIndex = index;
-            });
-          },
-          elevation: 0,
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: Colors.blue,
-          unselectedItemColor: Colors.grey,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined, size: 30),
-              label: "Home",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.business_center, size: 30),
-              label: "Projects",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.people_outline_outlined, size: 30),
-              label: "Community",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.chat_bubble_outline, size: 30),
-              label: "Chat",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline, size: 30),
-              label: "Profile",
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
             ),
           ],
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+          child: BottomNavigationBar(
+            currentIndex: currentIndex,
+            onTap: (index) {
+              setState(() {
+                currentIndex = index;
+              });
+            },
+            elevation: 0,
+            type: BottomNavigationBarType.fixed,
+            selectedItemColor: Colors.blue,
+            unselectedItemColor: Colors.grey,
+            // ✅ نضيف bottom padding صغير عشان النص يبقى واضح
+            // ✅ من غير padding هيكفي SafeArea
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home_outlined, size: 30),
+                label: "Home",
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.business_center, size: 30),
+                label: "Projects",
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.people_outline_outlined, size: 30),
+                label: "Community",
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.chat_bubble_outline, size: 30),
+                label: "Chat",
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person_outline, size: 30),
+                label: "Profile",
+              ),
+            ],
+          ),
         ),
       ),
     );

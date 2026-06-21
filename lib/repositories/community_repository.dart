@@ -13,6 +13,7 @@ abstract class ICommunityRepository {
     required String userName,
     required String userInitial,
     String? attachmentName,
+    String? teamId, // ✅ NEW: required when visibility == myTeam
   });
   Future<PostModel> toggleLike(String postId, String currentUserId);
   Future<void> deletePost(String postId);

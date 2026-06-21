@@ -1,5 +1,6 @@
 // lib/cubits/supervisor/supervisor_task_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:onboard/cubits/teams/teams_cubit.dart';
 import 'package:onboard/cubits/teams/teams_state.dart';
 import 'package:onboard/models/TaskModels/task_model.dart';
@@ -53,13 +54,15 @@ class SupervisorTaskCubit extends Cubit<SupervisorTaskState> {
 
   // ── create ────────────────────────────────────────────────────
 
+  /// ✅ CHANGED: `supervisorFiles` now takes the real picked
+  /// `PlatformFile`s so they can be uploaded as actual multipart files
+  /// instead of just sending their name/type as metadata.
   Future<void> createTask({
     required String title,
     required String description,
     required DateTime dueDate,
     required List<String> assignedTo,
-    String? attachment,
-    List<Map<String, String>> supervisorAttachments = const [],
+    List<PlatformFile> supervisorFiles = const [],
     required String teamId,
     String supervisorName = 'Supervisor',
   }) async {
@@ -75,7 +78,7 @@ class SupervisorTaskCubit extends Cubit<SupervisorTaskState> {
           teamId: int.tryParse(teamId) ?? 0,
           assignedTo: assignedTo,
           supervisorName: supervisorName,
-          supervisorAttachments: supervisorAttachments,
+          supervisorFiles: supervisorFiles,
         );
       } else {
         await Future.delayed(const Duration(seconds: 1));
@@ -105,7 +108,6 @@ class SupervisorTaskCubit extends Cubit<SupervisorTaskState> {
 
   // ── delete task ───────────────────────────────────────────────
 
-  /// DELETE /api/Tasks/{id}?supervisorId=
   Future<void> deleteTask(String taskId) async {
     final previousState = state;
     try {
@@ -119,7 +121,6 @@ class SupervisorTaskCubit extends Cubit<SupervisorTaskState> {
         }
       }
 
-      // Remove task from local state immediately
       if (previousState is SupervisorTasksLoaded) {
         final updated = previousState.allTasks
             .where((t) => t.id != taskId)
@@ -129,7 +130,6 @@ class SupervisorTaskCubit extends Cubit<SupervisorTaskState> {
 
       emit(SupervisorTaskSuccess());
 
-      // Reload to stay in sync with the backend
       if (_cachedSupervisorId != null) {
         await loadSupervisorData(_cachedSupervisorId!);
       }
@@ -145,7 +145,6 @@ class SupervisorTaskCubit extends Cubit<SupervisorTaskState> {
     required String taskId,
     required String message,
     required String from,
-    List<Map<String, String>> attachments = const [],
   }) async {
     try {
       if (_taskRepository is ApiTaskRepository) {
@@ -154,7 +153,6 @@ class SupervisorTaskCubit extends Cubit<SupervisorTaskState> {
           taskId: taskId,
           message: message,
           from: from,
-          attachments: attachments,
         );
         if (!ok) {
           emit(SupervisorTaskError('Failed to submit feedback'));

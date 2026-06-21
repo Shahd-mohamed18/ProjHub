@@ -5,25 +5,23 @@ class CommunityCommentModel extends Equatable {
   final String id;
   final String? taskId;
   final String? postId;
-  final String userId;        // ✅ NEW: needed for delete ownership check
+  final String userId;
   final String userName;
   final String userInitial;
   final String content;
   final DateTime createdAt;
   final int likes;
   final bool isLiked;
-  /// If this is a reply, holds the name of the person being replied to
   final String? replyToName;
-  /// parentCommentId — used to rebuild nesting after refresh
   final String? parentCommentId;
-  /// Replies nested under this comment (local only, not from API)
   final List<CommunityCommentModel> replies;
+  final String? userPhotoUrl;
 
   const CommunityCommentModel({
     required this.id,
     this.taskId,
     this.postId,
-    this.userId = '',           // ✅ NEW
+    this.userId = '',
     required this.userName,
     required this.userInitial,
     required this.content,
@@ -31,8 +29,9 @@ class CommunityCommentModel extends Equatable {
     this.likes = 0,
     this.isLiked = false,
     this.replyToName,
-    this.parentCommentId,       // ✅ NEW
+    this.parentCommentId,
     this.replies = const [],
+    this.userPhotoUrl,
   }) : assert(taskId != null || postId != null, 'Either taskId or postId must be provided');
 
   bool get isTaskComment => taskId != null;
@@ -90,7 +89,6 @@ class CommunityCommentModel extends Equatable {
     return mockCommunityComments.where((c) => c.postId == postId).toList();
   }
 
-  // ✅ create method
   factory CommunityCommentModel.create({
     required String id,
     required String postId,
@@ -99,6 +97,7 @@ class CommunityCommentModel extends Equatable {
     required String content,
     String? replyToName,
     String? parentCommentId,
+    String? userPhotoUrl,
   }) {
     return CommunityCommentModel(
       id: id,
@@ -112,14 +111,18 @@ class CommunityCommentModel extends Equatable {
       isLiked: false,
       replyToName: replyToName,
       parentCommentId: parentCommentId,
+      userPhotoUrl: userPhotoUrl,
     );
   }
 
-  // ✅ fromJson — flexible key parsing
   factory CommunityCommentModel.fromJson(Map<String, dynamic> json) {
     final name = (json['userName'] ?? json['user_name'] ?? json['fullName'] ?? json['name'] ?? '').toString();
     final uid  = (json['userId']   ?? json['user_id']   ?? json['uid']      ?? '').toString();
     final parentId = (json['parentCommentId'] ?? json['parent_comment_id'] ?? json['parentId'] ?? '').toString();
+    
+    // ✅ Correct field: "userImage" (lowercase)
+    final photo = json['userImage']?.toString() ?? json['UserImage']?.toString();
+    
     return CommunityCommentModel(
       id: json['id'].toString(),
       postId: json['postId']?.toString(),
@@ -131,6 +134,7 @@ class CommunityCommentModel extends Equatable {
       likes: json['likes'] ?? 0,
       isLiked: json['isLiked'] ?? false,
       parentCommentId: parentId.isEmpty ? null : parentId,
+      userPhotoUrl: photo,
     );
   }
 
@@ -148,6 +152,7 @@ class CommunityCommentModel extends Equatable {
     String? replyToName,
     String? parentCommentId,
     List<CommunityCommentModel>? replies,
+    String? userPhotoUrl,
   }) {
     return CommunityCommentModel(
       id: id ?? this.id,
@@ -163,12 +168,13 @@ class CommunityCommentModel extends Equatable {
       replyToName: replyToName ?? this.replyToName,
       parentCommentId: parentCommentId ?? this.parentCommentId,
       replies: replies ?? this.replies,
+      userPhotoUrl: userPhotoUrl ?? this.userPhotoUrl,
     );
   }
 
   @override
   List<Object?> get props => [
         id, taskId, postId, userId, userName, content,
-        createdAt, likes, isLiked, replyToName, parentCommentId, replies,
+        createdAt, likes, isLiked, replyToName, parentCommentId, replies, userPhotoUrl,
       ];
 }

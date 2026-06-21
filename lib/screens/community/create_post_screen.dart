@@ -1,6 +1,11 @@
 // lib/screens/community/create_post_screen.dart
 //
-// Change: Removed "Only Me" visibility option. Only Public and My Team remain.
+// Changes:
+//  1. Removed "Only Me" visibility option. Only Public and My Team remain.
+//  2. ✅ FIX: When visibility is "My Team", resolve the user's teamId from
+//     CommunityCubit's loaded state and pass it into cubit.createPost().
+//     Without this, "My Team" posts had no team association on the backend
+//     and never showed up for teammates.
 
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -8,6 +13,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:onboard/cubits/auth/auth_cubit.dart';
 import 'package:onboard/cubits/community/community_cubit.dart';
+import 'package:onboard/cubits/community/community_state.dart';
 import 'package:onboard/models/CommunityModels/post_model.dart';
 
 class CreatePostScreen extends StatefulWidget {
@@ -48,6 +54,16 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   String _getUserInitial(BuildContext context) {
     final name = _getUserName(context);
     return name.isNotEmpty ? name[0].toUpperCase() : '?';
+  }
+
+  // ✅ NEW: resolve the current user's primary team id from CommunityCubit's
+  // loaded state (populated in loadPosts() via TeamApiService.getMyTeams).
+  String? _getTeamId(BuildContext context) {
+    final state = widget.cubit.state;
+    if (state is CommunityLoaded) {
+      return state.primaryTeamId;
+    }
+    return null;
   }
 
   String get _visibilityLabel {
@@ -162,9 +178,25 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     final userId = _getUserId(context);
     final userName = _getUserName(context);
     final userInitial = _getUserInitial(context);
+    final teamId = _getTeamId(context); // ✅ NEW
 
     print('📝 [CREATE POST] userId: $userId');
     print('📝 [CREATE POST] userName: $userName');
+    print('📝 [CREATE POST] visibility: $_visibility  teamId: $teamId'); // ✅ NEW
+
+    // ✅ NEW: warn (and block) if "My Team" is selected but we couldn't
+    // resolve a team — posting anyway would silently create an invisible post.
+    if (_visibility == PostVisibility.myTeam &&
+        (teamId == null || teamId.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              "We couldn't find your team. Join or create a team first to post to My Team."),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
 
     setState(() => _isPosting = true);
 
@@ -177,6 +209,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         userName: userName,
         userInitial: userInitial,
         attachmentName: _selectedImage?.path,
+        teamId: teamId, // ✅ NEW
       );
 
       if (mounted) {
@@ -433,28 +466,46 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           // ✅ Visibility hint — only shown for My Team (not "Only Me")
           if (_visibility == PostVisibility.myTeam) ...[
             const SizedBox(height: 8),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.group, size: 14, color: Color(0xFF155DFC)),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Only your team members can see this post',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF155DFC),
-                      ),
-                    ),
+            Builder(
+              builder: (context) {
+                final teamId = _getTeamId(context);
+                final hasTeam = teamId != null && teamId.isNotEmpty;
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: hasTeam
+                        ? const Color(0xFFEFF6FF)
+                        : const Color(0xFFFFF7ED),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ],
-              ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        hasTeam ? Icons.group : Icons.warning_amber_rounded,
+                        size: 14,
+                        color: hasTeam
+                            ? const Color(0xFF155DFC)
+                            : Colors.orange,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          hasTeam
+                              ? 'Only your team members can see this post'
+                              : "We couldn't find your team — join or create one first",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: hasTeam
+                                ? const Color(0xFF155DFC)
+                                : Colors.orange[800],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ],
         ],

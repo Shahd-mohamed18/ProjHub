@@ -10,8 +10,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool isNotificationSoundEnabled = false;
-  bool isEmailNotificationEnabled = false;
+  // ✅ تم إزالة المتغيرات الخاصة بالإشعارات
 
   @override
   Widget build(BuildContext context) {
@@ -76,23 +75,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── Notifications ─────────────────────────
-                    _buildSectionTitle('Notifications'),
-                    const SizedBox(height: 12),
-                    _buildToggleRow(
-                      label: 'Notification Sound',
-                      value: isNotificationSoundEnabled,
-                      onChanged: (v) => setState(() => isNotificationSoundEnabled = v),
-                    ),
-                    const SizedBox(height: 8),
-                    _buildToggleRow(
-                      label: 'Email Notification',
-                      value: isEmailNotificationEnabled,
-                      onChanged: (v) => setState(() => isEmailNotificationEnabled = v),
-                    ),
-
-                    const SizedBox(height: 28),
-
                     // ── Privacy and Policy ────────────────────
                     _buildSectionTitle('Privacy and Policy'),
                     const SizedBox(height: 12),
@@ -164,63 +146,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildToggleRow({
-    required String label,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return Container(
-      width: double.infinity,
-      height: 55,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: ShapeDecoration(
-        color: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        shadows: const [
-          BoxShadow(color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 4)),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.black,
-              fontSize: 16,
-              fontFamily: 'Roboto',
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-          GestureDetector(
-            onTap: () => onChanged(!value),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 40,
-              height: 22,
-              decoration: ShapeDecoration(
-                color: value ? const Color(0xFF3B82F6) : const Color(0xFFD9D9D9),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              ),
-              child: Row(
-                mainAxisAlignment: value ? MainAxisAlignment.end : MainAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 22,
-                    height: 22,
-                    decoration: const ShapeDecoration(
-                      color: Colors.white,
-                      shape: OvalBorder(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // ✅ تم حذف دالة _buildToggleRow بالكامل
 
   Widget _buildNavRow({
     required String label,

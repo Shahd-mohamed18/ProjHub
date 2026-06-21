@@ -1,5 +1,4 @@
 // lib/cubits/community/community_comments_cubit.dart
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/community/community_state.dart';
 import 'package:onboard/models/CommunityModels/community_comment_model.dart';
@@ -25,7 +24,6 @@ class CommunityCommentsCubit extends Cubit<CommentsPostState> {
     }
   }
 
-  // Count all comments including nested replies
   int _countAll(List<CommunityCommentModel> comments) {
     int count = comments.length;
     for (final c in comments) {
@@ -41,24 +39,24 @@ class CommunityCommentsCubit extends Cubit<CommentsPostState> {
     required String userName,
     String? replyToCommentId,
     String? replyToName,
+    String? userPhotoUrl, // ✅ NEW
   }) async {
     final currentState = state;
     if (currentState is! CommentsPostLoaded) return;
 
-    // Optimistic: add immediately with a temp id
     final optimisticComment = CommunityCommentModel.create(
       id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
       postId: postId,
-      userId: userId,       // We know the userId here — set it on optimistic
+      userId: userId,
       userName: userName.isNotEmpty ? userName : 'You',
       content: content,
       replyToName: replyToName,
       parentCommentId: replyToCommentId,
+      userPhotoUrl: userPhotoUrl, // ✅ NEW
     );
 
     List<CommunityCommentModel> updatedComments;
     if (replyToCommentId != null) {
-      // Nest inside parent
       updatedComments = currentState.comments.map((c) {
         if (c.id == replyToCommentId) {
           return c.copyWith(
@@ -82,8 +80,6 @@ class CommunityCommentsCubit extends Cubit<CommentsPostState> {
     ));
 
     try {
-      // API returns {message: "Comment added"} — no real id back.
-      // We build the confirmed comment locally in the repository.
       final confirmedComment = await _repository.addComment(
         postId: postId,
         content: content,
@@ -92,13 +88,13 @@ class CommunityCommentsCubit extends Cubit<CommentsPostState> {
         parentCommentId: replyToCommentId,
       );
 
-      // Build final comment — preserve userId and replyToName
       final finalComment = confirmedComment.copyWith(
         userId: userId,
         userName: userName.isNotEmpty ? userName : 'You',
         userInitial: userName.isNotEmpty ? userName[0].toUpperCase() : 'Y',
         replyToName: replyToName,
         parentCommentId: replyToCommentId,
+        userPhotoUrl: userPhotoUrl, // ✅ NEW
       );
 
       if (isClosed) return;
@@ -106,7 +102,6 @@ class CommunityCommentsCubit extends Cubit<CommentsPostState> {
       if (latestState is CommentsPostLoaded) {
         List<CommunityCommentModel> finalComments;
         if (replyToCommentId != null) {
-          // Replace optimistic reply inside parent
           finalComments = latestState.comments.map((c) {
             if (c.id == replyToCommentId) {
               final updatedReplies = List<CommunityCommentModel>.from(
@@ -117,7 +112,6 @@ class CommunityCommentsCubit extends Cubit<CommentsPostState> {
             return c;
           }).toList();
         } else {
-          // Replace optimistic top-level comment
           finalComments = latestState.comments
               .map((c) => c.id == optimisticComment.id ? finalComment : c)
               .toList();
@@ -129,7 +123,6 @@ class CommunityCommentsCubit extends Cubit<CommentsPostState> {
         ));
       }
     } catch (e) {
-      // On error, reload from server to get accurate state
       if (isClosed) return;
       print('❌ [ADD COMMENT] failed: $e');
       loadComments(postId);
@@ -148,7 +141,6 @@ class CommunityCommentsCubit extends Cubit<CommentsPostState> {
       return;
     }
 
-    // Optimistic removal
     final updatedComments = _removeCommentById(currentState.comments, commentId);
     final newCount = (currentState.totalCount - 1).clamp(0, currentState.totalCount);
 

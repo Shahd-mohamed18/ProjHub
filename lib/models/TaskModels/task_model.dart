@@ -142,7 +142,7 @@ class TaskModel {
       assignedTo: ['m1', 'm2'],
       description: 'Review the current UI designs and provide feedback.',
       supervisorAttachments: [
-        {'name': 'design_guidelines.pdf', 'type': 'pdf'},
+        {'name': 'design_guidelines.pdf', 'type': 'pdf', 'fileUrl': ''},
       ],
       studentAttachments: [],
       isCompleted: false,
@@ -171,7 +171,7 @@ class TaskModel {
       description: 'Write technical documentation for all modules.',
       supervisorAttachments: [],
       studentAttachments: [
-        {'name': 'docs_v1.pdf', 'type': 'pdf'},
+        {'name': 'docs_v1.pdf', 'type': 'pdf', 'fileUrl': ''},
       ],
       isCompleted: true,
     ),
@@ -182,19 +182,57 @@ class TaskModel {
   /// Safely parses an attachment list regardless of whether it came from
   /// raw JSON (List of Map<String,dynamic>) or already-normed data
   /// (List of Map<String,String>). Never throws.
+  ///
+  /// ✅ FIXED: now also REJECTS entries that look like feedback objects
+  /// (e.g. backend bug that folds Feedback rows into the same
+  /// attachments array). A real attachment always has a file-looking
+  /// name (contains an extension) or a non-empty fileUrl. A feedback
+  /// row typically carries 'message'/'from'/'date' keys and no fileUrl
+  /// — if we see that shape, we drop it instead of rendering it as a
+  /// fake attachment in the UI.
   static List<Map<String, String>>? _parseAttachList(dynamic raw) {
     if (raw == null) return null;
     if (raw is! List) return null;
     if (raw.isEmpty) return [];
     try {
-      return raw.map<Map<String, String>>((e) {
-        if (e is Map<String, String>) return e;
-        final m = e as Map;
-        return {
-          'name': (m['name'] ?? m['fileName'] ?? '').toString(),
-          'type': (m['type'] ?? m['fileType'] ?? 'file').toString(),
-        };
-      }).toList();
+      return raw
+          .map<Map<String, String>?>((e) {
+            if (e is! Map) return null;
+            final m = e as Map;
+
+            final name =
+                (m['name'] ?? m['fileName'] ?? '').toString().trim();
+            final fileUrl = (m['fileUrl'] ?? m['url'] ?? m['file_url'] ?? '')
+                .toString()
+                .trim();
+
+            // ── feedback-shape guard ──────────────────────────────
+            final hasFeedbackKeys = m.containsKey('message') ||
+                m.containsKey('from') ||
+                m.containsKey('feedbackId') ||
+                m.containsKey('createdAt') ||
+                m.containsKey('created_at');
+            final looksLikeFile =
+                fileUrl.isNotEmpty || (name.isNotEmpty && name.contains('.'));
+
+            if (hasFeedbackKeys && !looksLikeFile) {
+              // This is feedback text that leaked into the attachments
+              // array — skip it instead of showing it as a fake file.
+              return null;
+            }
+            if (name.isEmpty && fileUrl.isEmpty) {
+              // Nothing usable to show — skip silently.
+              return null;
+            }
+
+            return {
+              'name': name.isNotEmpty ? name : 'file',
+              'type': (m['type'] ?? m['fileType'] ?? 'file').toString(),
+              'fileUrl': fileUrl,
+            };
+          })
+          .whereType<Map<String, String>>()
+          .toList();
     } catch (_) {
       return null;
     }
@@ -206,7 +244,11 @@ class TaskModel {
       _tasks[index] = _tasks[index].copyWith(
         isCompleted: true,
         studentAttachments: filePaths
-            .map((p) => {'name': p.split('/').last, 'type': p.split('.').last})
+            .map((p) => {
+                  'name': p.split('/').last,
+                  'type': p.split('.').last,
+                  'fileUrl': '',
+                })
             .toList(),
       );
     }

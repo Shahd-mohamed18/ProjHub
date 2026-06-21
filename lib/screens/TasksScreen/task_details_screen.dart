@@ -8,9 +8,11 @@
 //  3. Supervisor attachments visible to student (from _norm fix)
 //  4. Feedback button also visible on completed tasks for student (View Feedback)
 //  5. Delete task available for supervisor/assistant
+//  6. ✅ Attachments now use `fileUrl` to open/download the real file
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:onboard/cubits/auth/auth_cubit.dart';
 import 'package:onboard/cubits/comments/comments_cubit.dart';
 import 'package:onboard/cubits/supervisor/supervisor_task_cubit.dart';
@@ -129,6 +131,58 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
           backgroundColor: ok ? Colors.green : Colors.red,
         ));
         if (ok) Navigator.pop(context);
+      }
+    }
+  }
+
+  // ── Attachment download/open ────────────────────────────────────
+
+  /// Backend often returns a relative path (e.g. "/uploads/abc.pdf")
+  /// instead of a full URL. `launchUrl` can't open that — it needs a
+  /// scheme + host. This resolves relative paths against the API base.
+  static const String _apiBase = 'https://projecthubb.runasp.net';
+
+  String _resolveUrl(String rawUrl) {
+    final trimmed = rawUrl.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    // Make sure there's exactly one slash between base and path.
+    final path = trimmed.startsWith('/') ? trimmed : '/$trimmed';
+    return '$_apiBase$path';
+  }
+
+  Future<void> _openAttachment(String? url) async {
+    if (url == null || url.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No file URL available for this attachment')),
+      );
+      return;
+    }
+
+    final resolved = _resolveUrl(url);
+    final uri = Uri.tryParse(resolved);
+    debugPrint('[Attachment] raw="$url" resolved="$resolved"');
+
+    if (uri == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid file URL')),
+      );
+      return;
+    }
+    try {
+      final launched =
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open file')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open file: $e')),
+        );
       }
     }
   }
@@ -392,6 +446,8 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     );
   }
 
+  /// ✅ Attachments now show a download button only when a real `fileUrl`
+  /// is present, and tapping it opens the file via url_launcher.
   Widget _buildAttachmentsSection({
     required String title,
     required List<Map<String, String>> attachments,
@@ -404,16 +460,19 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
         const SizedBox(height: 12),
         ...attachments.map(
-          (f) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: AttachmentItem(
-              fileName: f['name'] ?? 'file',
-              fileType: f['type'] ?? 'file',
-              iconBackgroundColor: accentColor,
-              showDownloadButton: true,
-              onDownload: () => debugPrint('Download ${f['name']}'),
-            ),
-          ),
+          (f) {
+            final fileUrl = f['fileUrl'] ?? '';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: AttachmentItem(
+                fileName: f['name'] ?? 'file',
+                fileType: f['type'] ?? 'file',
+                iconBackgroundColor: accentColor,
+                showDownloadButton: fileUrl.isNotEmpty,
+                onDownload: () => _openAttachment(fileUrl),
+              ),
+            );
+          },
         ),
       ],
     );

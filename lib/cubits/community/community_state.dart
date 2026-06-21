@@ -23,6 +23,7 @@ class CommunityLoaded extends CommunityState {
   final String currentUserId; // 
   final bool isCreatingPost;
   final List<String> teamMemberIds; // IDs of users who share a team with current user
+  final List<String> myTeamIds; // ✅ NEW: IDs of teams the current user belongs to
 
   const CommunityLoaded({
     required this.posts,
@@ -30,10 +31,12 @@ class CommunityLoaded extends CommunityState {
     this.currentUserId = 'current_user',
     this.isCreatingPost = false,
     this.teamMemberIds = const [],
+    this.myTeamIds = const [], // ✅ NEW
   });
 
   @override
-  List<Object?> get props => [posts, myPosts, currentUserId, isCreatingPost, teamMemberIds];
+  List<Object?> get props =>
+      [posts, myPosts, currentUserId, isCreatingPost, teamMemberIds, myTeamIds];
 
   CommunityLoaded copyWith({
     List<PostModel>? posts,
@@ -41,6 +44,7 @@ class CommunityLoaded extends CommunityState {
     String? currentUserId,
     bool? isCreatingPost,
     List<String>? teamMemberIds,
+    List<String>? myTeamIds, // ✅ NEW
   }) {
     return CommunityLoaded(
       posts: posts ?? this.posts,
@@ -48,8 +52,12 @@ class CommunityLoaded extends CommunityState {
       currentUserId: currentUserId ?? this.currentUserId,
       isCreatingPost: isCreatingPost ?? this.isCreatingPost,
       teamMemberIds: teamMemberIds ?? this.teamMemberIds,
+      myTeamIds: myTeamIds ?? this.myTeamIds, // ✅ NEW
     );
   }
+
+  // ✅ NEW: convenience getter — first/primary team id, used when creating a post.
+  String? get primaryTeamId => myTeamIds.isNotEmpty ? myTeamIds.first : null;
 }
 
 class CommunityError extends CommunityState {

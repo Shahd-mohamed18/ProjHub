@@ -15,6 +15,8 @@ class PostModel {
   final bool isLiked;
   final List<String> likedByUserIds;
   final PostVisibility visibility;
+  final String? teamId; // ✅ NEW: which team this post belongs to (for myTeam visibility)
+  final String? userPhotoUrl; // ✅ NEW: author's profile photo URL (from API's UserImage)
 
   const PostModel({
     required this.id,
@@ -31,6 +33,8 @@ class PostModel {
     this.isLiked = false,
     this.likedByUserIds = const [],
     this.visibility = PostVisibility.public,
+    this.teamId, // ✅ NEW
+    this.userPhotoUrl, // ✅ NEW
   });
 
   String get timeAgo {
@@ -57,6 +61,8 @@ class PostModel {
     String? attachmentName,
     PostVisibility? visibility,
     DateTime? createdAt,
+    String? teamId, // ✅ NEW
+    String? userPhotoUrl, // ✅ NEW
   }) {
     return PostModel(
       id: id,
@@ -73,6 +79,8 @@ class PostModel {
       isLiked: isLiked ?? this.isLiked,
       likedByUserIds: likedByUserIds ?? this.likedByUserIds,
       visibility: visibility ?? this.visibility,
+      teamId: teamId ?? this.teamId, // ✅ NEW
+      userPhotoUrl: userPhotoUrl ?? this.userPhotoUrl, // ✅ NEW
     );
   }
 
@@ -102,6 +110,9 @@ class PostModel {
         (v) => v.name == (json['visibility'] as String? ?? 'public'),
         orElse: () => PostVisibility.public,
       ),
+      teamId: json['team_id']?.toString() ?? json['teamId']?.toString(), // ✅ NEW
+      userPhotoUrl: (json['user_photo_url'] ?? json['userPhotoUrl'] ?? json['UserImage'])
+          as String?, // ✅ NEW
     );
   }
 
@@ -119,6 +130,8 @@ class PostModel {
         'is_liked': isLiked,
         'liked_by_user_ids': likedByUserIds,
         'visibility': visibility.name,
+        'team_id': teamId, // ✅ NEW
+        'user_photo_url': userPhotoUrl, // ✅ NEW
       };
 
   static List<PostModel> get mockPosts => [

@@ -1,13 +1,11 @@
 // lib/screens/TasksScreen/feedback_screen.dart
 //
-// ✅ FIXED: Screen now fetches feedback from the API on load.
-// Previously it received feedbacks: const [] and never showed anything.
-// Now it calls ApiTaskRepository.getFeedbackForTask(taskId) on initState.
+// ✅ Screen fetches feedback from the API on load via
+// ApiTaskRepository.getFeedbackForTask(taskId).
 
 import 'package:flutter/material.dart';
 import 'package:onboard/models/TaskModels/feedback_model.dart';
 import 'package:onboard/repositories/api_task_repository.dart';
-import 'package:onboard/widgets/tasks/task_details/attachment_item.dart';
 import 'package:onboard/widgets/tasks/feedback/feedback_card.dart';
 
 class FeedbackScreen extends StatefulWidget {
@@ -133,11 +131,6 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       );
     }
 
-    // Collect all feedback attachments
-    final allAttachments = _feedbacks
-        .expand((fb) => fb.attachments)
-        .toList();
-
     return RefreshIndicator(
       onRefresh: _loadFeedback,
       child: SingleChildScrollView(
@@ -146,32 +139,6 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Feedback attachments (files the supervisor sent)
-            if (allAttachments.isNotEmpty) ...[
-              const Text(
-                'Feedback Attachments',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF101828),
-                ),
-              ),
-              const SizedBox(height: 12),
-              ...allAttachments.map(
-                (a) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: AttachmentItem(
-                    fileName: a.name,
-                    fileType: a.type,
-                    iconBackgroundColor: const Color(0xFF155DFC),
-                    showDownloadButton: true,
-                    onDownload: () => debugPrint('Download: ${a.name}'),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
-
             // Feedback messages
             const Text(
               'Feedback',

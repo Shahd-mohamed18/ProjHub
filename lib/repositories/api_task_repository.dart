@@ -1,14 +1,7 @@
-// lib/repositories/api_task_repository.dart
-//
-// ✅ FIXED:
-//  • getCommentsForTask uses GET /api/Tasks/{id}/comments  (was returning [])
-//  • getFeedbackForTask uses GET /api/Tasks/{id}/feedback  (dedicated endpoint)
-//  • getTaskById uses GET /api/Tasks/{id}  – full detail incl. attachments
-//  • After submitTask the task is still fetchable (no local mutation)
-//  • _norm maps every backend key variant correctly
-
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:onboard/models/TaskModels/task_model.dart';
 import 'package:onboard/models/TaskModels/completed_task_model.dart';
@@ -36,6 +29,18 @@ class ApiTaskRepository implements ITaskRepository {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       };
+    }
+  }
+
+  Future<Map<String, String>> _authHeaders() async {
+    try {
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken(true);
+      return {
+        'Accept': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      };
+    } catch (_) {
+      return {'Accept': 'application/json'};
     }
   }
 
@@ -69,8 +74,10 @@ class ApiTaskRepository implements ITaskRepository {
   Future<http.Response> _put(String path, Map<String, dynamic> body,
       {Map<String, String>? query}) async {
     final uri = _uri(path, query: query);
+    final encoded = jsonEncode(body);
+    _log('PUT $uri  body=$encoded');
     final r =
-        await http.put(uri, headers: await _headers(), body: jsonEncode(body));
+        await http.put(uri, headers: await _headers(), body: encoded);
     _logRes(r);
     _check(r);
     return r;
@@ -102,17 +109,18 @@ class ApiTaskRepository implements ITaskRepository {
   // ITaskRepository
   // ─────────────────────────────────────────────────────────────
 
-  /// GET /api/Tasks/{id}  — single task, full detail incl. attachments
   @override
   Future<TaskModel?> getTaskById(String taskId) async {
     try {
       final r = await _get('/api/Tasks/$taskId');
       final raw = jsonDecode(r.body) as Map<String, dynamic>;
-      // Parse directly from raw JSON so supervisorAttachments is read as-is
-      // from the backend without going through _norm (which is for list items).
-      final task = TaskModel.fromJson(raw);
+      final task = TaskModel.fromJson(_norm(raw));
       _log('getTaskById supervisorAttachments count: '
           '${task.supervisorAttachments?.length ?? 0}');
+      for (final a in (task.supervisorAttachments ?? const [])) {
+        _log('  supervisorAttachment: name="${a['name']}" '
+            'type="${a['type']}" fileUrl="${a['fileUrl']}"');
+      }
       return task;
     } catch (e) {
       _log('getTaskById error: $e');
@@ -120,7 +128,6 @@ class ApiTaskRepository implements ITaskRepository {
     }
   }
 
-  /// GET /api/Tasks/my-tasks?userId=  →  pending tasks for this student
   @override
   Future<List<TaskModel>> getPendingTasks({String? userId}) async {
     final uid = userId ?? _uid ?? '';
@@ -128,7 +135,13 @@ class ApiTaskRepository implements ITaskRepository {
       final r = await _get('/api/Tasks/my-tasks',
           query: uid.isNotEmpty ? {'userId': uid} : null);
       final List data = jsonDecode(r.body);
+      _log('getPendingTasks: my-tasks returned ${data.length} raw tasks '
+          'for uid=$uid');
       final all = data.map((j) => TaskModel.fromJson(_norm(j))).toList();
+      for (final t in all) {
+        _log('  task="${t.title}" id=${t.id} isCompleted=${t.isCompleted} '
+            'assignedTo=${t.assignedTo} teamId=${t.teamId}');
+      }
       return all.where((t) => !t.isCompleted).toList();
     } catch (e) {
       _log('getPendingTasks error: $e');
@@ -136,7 +149,6 @@ class ApiTaskRepository implements ITaskRepository {
     }
   }
 
-  /// GET /api/Tasks/my-tasks?userId=  →  completed tasks for this student
   @override
   Future<List<CompletedTaskModel>> getCompletedTasks({String? userId}) async {
     final uid = userId ?? _uid ?? '';
@@ -149,15 +161,12 @@ class ApiTaskRepository implements ITaskRepository {
           .where((t) => t.isCompleted)
           .toList();
 
-      // Fetch full detail for each completed task so supervisor attachments
-      // are included (the list endpoint often omits them).
       final List<CompletedTaskModel> result = [];
       for (final t in completedTasks) {
         TaskModel fullTask = t;
         try {
           final detail = await getTaskById(t.id);
           if (detail != null) {
-            // If detail drops supervisor attachments but list had them, keep list version
             final supAttach =
                 (detail.supervisorAttachments == null ||
                         detail.supervisorAttachments!.isEmpty)
@@ -165,16 +174,14 @@ class ApiTaskRepository implements ITaskRepository {
                     : detail.supervisorAttachments;
             fullTask = detail.copyWith(supervisorAttachments: supAttach);
           }
-        } catch (_) {
-          // fallback to list data if detail fetch fails
-        }
+        } catch (_) {}
         result.add(CompletedTaskModel(
           id: fullTask.id,
           title: fullTask.title,
           completedDate: fullTask.dueDate,
           status: 'Approved',
           hasFeedback: true,
-          taskModel: fullTask, // full data including supervisor attachments
+          taskModel: fullTask,
         ));
       }
       return result;
@@ -184,7 +191,6 @@ class ApiTaskRepository implements ITaskRepository {
     }
   }
 
-  /// GET /api/Tasks/team/{teamId}
   @override
   Future<List<TeamTaskModel>> getTeamTasks({String? teamId}) async {
     if (teamId == null || teamId.isEmpty) return [];
@@ -198,14 +204,18 @@ class ApiTaskRepository implements ITaskRepository {
     }
   }
 
-  /// GET /api/Tasks/all-tasks?supervisorId=
   @override
   Future<List<TaskModel>> getTasksBySupervisor(String supervisorId) async {
     try {
       final r = await _get('/api/Tasks/all-tasks',
           query: {'supervisorId': supervisorId});
       final List data = jsonDecode(r.body);
-      return data.map((j) => TaskModel.fromJson(_norm(j))).toList();
+      final tasks = data.map((j) => TaskModel.fromJson(_norm(j))).toList();
+      for (final t in tasks) {
+        _log('all-tasks: "${t.title}" id=${t.id} assignedTo=${t.assignedTo} '
+            'teamId=${t.teamId} isCompleted=${t.isCompleted}');
+      }
+      return tasks;
     } catch (e) {
       _log('getTasksBySupervisor error: $e');
       return [];
@@ -213,15 +223,11 @@ class ApiTaskRepository implements ITaskRepository {
   }
 
   // ── FEEDBACK ──────────────────────────────────────────────────
-  //
-  // ✅ Uses the dedicated endpoint: GET /api/Tasks/{id}/feedback
-  // Falls back to reading from GET /api/Tasks/{id} body if needed.
 
   @override
   Future<List<FeedbackModel>> getFeedbackForTask(String taskId) async {
     _log('getFeedbackForTask taskId=$taskId');
 
-    // 1️⃣ Try dedicated feedback endpoint first
     try {
       final r = await _get('/api/Tasks/$taskId/feedback');
       final body = jsonDecode(r.body);
@@ -250,7 +256,6 @@ class ApiTaskRepository implements ITaskRepository {
       _log('Dedicated /feedback endpoint failed: $e – falling back to task detail');
     }
 
-    // 2️⃣ Fallback: read feedbacks[] embedded in GET /api/Tasks/{id}
     try {
       final r = await _get('/api/Tasks/$taskId');
       final j = jsonDecode(r.body) as Map<String, dynamic>;
@@ -278,8 +283,6 @@ class ApiTaskRepository implements ITaskRepository {
   }
 
   // ── COMMENTS ──────────────────────────────────────────────────
-  //
-  // ✅ FIXED: was returning [] — now calls GET /api/Tasks/{id}/comments
 
   @override
   Future<List<CommentModel>> getCommentsForTask(String taskId) async {
@@ -303,7 +306,6 @@ class ApiTaskRepository implements ITaskRepository {
     }
   }
 
-  /// POST /api/Tasks/{id}/comments?userId=
   @override
   Future<CommentModel> addComment({
     required String taskId,
@@ -330,7 +332,6 @@ class ApiTaskRepository implements ITaskRepository {
     }
   }
 
-  /// POST /api/Tasks/{id}/submit?studentId=
   @override
   Future<bool> submitTask({
     required String taskId,
@@ -338,17 +339,27 @@ class ApiTaskRepository implements ITaskRepository {
   }) async {
     try {
       final uid = _uid ?? '';
-      final attachments = filePaths.map((p) {
-        final name = p.split('/').last;
-        final type = name.contains('.') ? name.split('.').last : 'file';
-        return <String, String>{'name': name, 'type': type};
-      }).toList();
+      final uri = _uri('/api/Tasks/$taskId/submit',
+          query: uid.isNotEmpty ? {'studentId': uid} : null);
 
-      await _post(
-        '/api/Tasks/$taskId/submit',
-        {'studentAttachments': attachments},
-        query: uid.isNotEmpty ? {'studentId': uid} : null,
-      );
+      final request = http.MultipartRequest('POST', uri);
+      request.headers.addAll(await _authHeaders());
+
+      for (final path in filePaths) {
+        final file = File(path);
+        if (await file.exists()) {
+          request.files
+              .add(await http.MultipartFile.fromPath('StudentFiles', path));
+        } else {
+          _log('submitTask: skipping missing file path "$path"');
+        }
+      }
+
+      _log('POST(multipart) $uri  files=${request.files.length}');
+      final streamed = await request.send();
+      final r = await http.Response.fromStream(streamed);
+      _logRes(r);
+      _check(r);
       return true;
     } catch (e) {
       _log('submitTask error: $e');
@@ -361,7 +372,6 @@ class ApiTaskRepository implements ITaskRepository {
 
   // ── Extra methods ─────────────────────────────────────────────
 
-  /// POST /api/Tasks?supervisorId=
   Future<TaskModel> createTask({
     required String title,
     required String description,
@@ -369,21 +379,87 @@ class ApiTaskRepository implements ITaskRepository {
     required int teamId,
     required List<String> assignedTo,
     required String supervisorName,
-    List<Map<String, String>> supervisorAttachments = const [],
+    List<PlatformFile> supervisorFiles = const [],
   }) async {
     final uid = _uid ?? '';
-    final body = {
-      'title': title,
-      'description': description,
-      'dueDate': dueDate.toUtc().toIso8601String(),
-      'teamId': teamId,
-      'assignedTo': assignedTo,
-      'supervisorAttachments': supervisorAttachments,
-    };
-    final r = await _post('/api/Tasks', body,
+    final uri = _uri('/api/Tasks',
         query: uid.isNotEmpty ? {'supervisorId': uid} : null);
+
+    final request = http.MultipartRequest('POST', uri);
+    request.headers.addAll(await _authHeaders());
+
+    request.fields['Title'] = title;
+    request.fields['Description'] = description;
+    request.fields['DueDate'] = dueDate.toUtc().toIso8601String();
+    request.fields['TeamId'] = teamId.toString();
+
+    for (final id in assignedTo) {
+      request.files.add(http.MultipartFile.fromString('AssignedTo', id));
+    }
+    for (var i = 0; i < assignedTo.length; i++) {
+      request.fields['AssignedTo[$i]'] = assignedTo[i];
+    }
+    if (assignedTo.isNotEmpty) {
+      request.fields['AssignedToJson'] = jsonEncode(assignedTo);
+      request.fields['AssignedToCsv'] = assignedTo.join(',');
+    }
+
+    for (final f in supervisorFiles) {
+      if (f.path != null) {
+        request.files.add(
+            await http.MultipartFile.fromPath('SupervisorFiles', f.path!));
+      } else if (f.bytes != null) {
+        request.files.add(http.MultipartFile.fromBytes(
+          'SupervisorFiles',
+          f.bytes!,
+          filename: f.name,
+        ));
+      }
+    }
+
+    _log('POST(multipart) $uri  fields=${request.fields}  '
+        'AssignedTo=$assignedTo  files=${request.files.length}');
+    final streamed = await request.send();
+    final r = await http.Response.fromStream(streamed);
+    _logRes(r);
+    _check(r);
+
+    Map<String, dynamic> norm;
     try {
-      final parsed = TaskModel.fromJson(_norm(jsonDecode(r.body)));
+      norm = _norm(jsonDecode(r.body));
+    } catch (_) {
+      norm = {};
+    }
+    _log('createTask response assignedTo=${norm['assignedTo']}');
+
+    final createdId = (norm['id'] ?? '').toString();
+    final returnedAssigned = (norm['assignedTo'] as List?) ?? const [];
+    if (createdId.isNotEmpty &&
+        assignedTo.isNotEmpty &&
+        returnedAssigned.isEmpty) {
+      _log('createTask: assignedTo was dropped by the backend — '
+          'patching via PUT /api/Tasks/$createdId');
+      final patched = await updateTask(
+        taskId: createdId,
+        assignedTo: assignedTo,
+      );
+      _log('createTask: assignedTo patch ${patched ? 'succeeded' : 'failed'}');
+      if (patched) {
+        final verify = await getTaskById(createdId);
+        _log('createTask: verify after patch — '
+            'assignedTo=${verify?.assignedTo}');
+        if (verify != null && verify.assignedTo.isNotEmpty) {
+          norm = {...norm, 'assignedTo': verify.assignedTo};
+        } else {
+          _log('⚠️ createTask: PUT reported success but assignedTo is '
+              'STILL empty after re-fetch. The backend is not persisting '
+              'assignedTo on update either — this needs a backend fix.');
+        }
+      }
+    }
+
+    try {
+      final parsed = TaskModel.fromJson(norm);
       return parsed.copyWith(from: supervisorName);
     } catch (_) {
       return TaskModel(
@@ -399,18 +475,16 @@ class ApiTaskRepository implements ITaskRepository {
     }
   }
 
-  /// POST /api/Tasks/{id}/feedback?supervisorId=
   Future<bool> addFeedback({
     required String taskId,
     required String message,
     required String from,
-    List<Map<String, String>> attachments = const [],
   }) async {
     try {
       final uid = _uid ?? '';
       await _post(
         '/api/Tasks/$taskId/feedback',
-        {'message': message, 'from': from, 'attachments': attachments},
+        {'message': message, 'from': from},
         query: uid.isNotEmpty ? {'supervisorId': uid} : null,
       );
       return true;
@@ -420,7 +494,6 @@ class ApiTaskRepository implements ITaskRepository {
     }
   }
 
-  /// PUT /api/Tasks/{id}?supervisorId=
   Future<bool> updateTask({
     required String taskId,
     String? title,
@@ -447,7 +520,6 @@ class ApiTaskRepository implements ITaskRepository {
     }
   }
 
-  /// DELETE /api/Tasks/{id}?supervisorId=
   Future<bool> deleteTask(String taskId) async {
     try {
       final uid = _uid ?? '';
@@ -460,7 +532,6 @@ class ApiTaskRepository implements ITaskRepository {
     }
   }
 
-  /// DELETE /api/Tasks/comments/{commentId}?userId=
   Future<bool> deleteComment(int commentId) async {
     try {
       final uid = _uid ?? '';
@@ -479,9 +550,6 @@ class ApiTaskRepository implements ITaskRepository {
     final supervisorId =
         (j['supervisorId'] ?? j['createdById'] ?? '').toString();
 
-    // Determine who this task is "from".
-    // For tasks created by the supervisor, use the supervisor name.
-    // For submitted tasks shown to the supervisor, also check student fields.
     final fromName = _firstNonEmpty([
       j['from'],
       j['supervisorName'],
@@ -510,22 +578,15 @@ class ApiTaskRepository implements ITaskRepository {
     final dueDateStr = (j['dueDate'] ?? j['due_date'])?.toString() ??
         DateTime.now().toIso8601String();
 
-    // supervisorAttachments: ONLY read the specific key.
-    // Do NOT fall back to the generic 'attachments' key because after a
-    // student submits, the backend may put the student files there and
-    // the doctor's original files would be lost.
     final supAttach = _attachList(
       j['supervisorAttachments'] ?? j['taskAttachments'],
     );
-    // studentAttachments: after submit these may come under 'attachments'
-    // or 'submissions' if the specific key is absent.
     final stuAttach = _attachList(
       j['studentAttachments'] ?? j['submissions'] ?? j['attachments'],
     );
 
     final isCompleted = j['isCompleted'] ?? j['is_completed'] ?? false;
 
-    // Extract who submitted the task (student side)
     final submittedByName = _firstNonEmpty([
       j['submittedByName'],
       j['studentName'],
@@ -561,21 +622,62 @@ class ApiTaskRepository implements ITaskRepository {
 
   List<String> _strList(dynamic v) {
     if (v == null) return [];
-    if (v is List) return v.map((e) => e.toString()).toList();
+    if (v is List) {
+      return v.map((e) {
+        if (e is Map) {
+          return (e['id'] ?? e['userId'] ?? e['memberId'] ?? '').toString();
+        }
+        return e.toString();
+      }).where((s) => s.isNotEmpty).toList();
+    }
     return [];
   }
 
+  /// ✅ FIXED: filters out feedback-shaped entries that may have leaked
+  /// into the attachments array from a backend serialization bug
+  /// (Feedback rows mixed into the same collection as real file
+  /// attachments). A real attachment has a non-empty fileUrl OR a
+  /// name with a file extension. A feedback row typically has
+  /// 'message'/'from'/'createdAt' keys and no fileUrl — if we see
+  /// that shape without file-like evidence, we drop it.
   List<Map<String, String>>? _attachList(dynamic v) {
     if (v == null) return null;
     if (v is List && v.isEmpty) return [];
     if (v is List) {
-      return v.map<Map<String, String>>((e) {
-        final m = e as Map<String, dynamic>;
-        return {
-          'name': (m['name'] ?? m['fileName'] ?? '').toString(),
-          'type': (m['type'] ?? m['fileType'] ?? 'file').toString(),
-        };
-      }).toList();
+      return v
+          .map<Map<String, String>?>((e) {
+            if (e is! Map) return null;
+            final m = e as Map<String, dynamic>;
+
+            final name =
+                (m['name'] ?? m['fileName'] ?? '').toString().trim();
+            final fileUrl =
+                (m['fileUrl'] ?? m['url'] ?? m['file_url'] ?? '')
+                    .toString()
+                    .trim();
+
+            final hasFeedbackKeys = m.containsKey('message') ||
+                m.containsKey('from') ||
+                m.containsKey('feedbackId') ||
+                m.containsKey('createdAt') ||
+                m.containsKey('created_at');
+            final looksLikeFile = fileUrl.isNotEmpty ||
+                (name.isNotEmpty && name.contains('.'));
+
+            if (hasFeedbackKeys && !looksLikeFile) {
+              _log('⚠️ Dropped feedback-shaped entry from attachments: $m');
+              return null;
+            }
+            if (name.isEmpty && fileUrl.isEmpty) return null;
+
+            return {
+              'name': name.isNotEmpty ? name : 'file',
+              'type': (m['type'] ?? m['fileType'] ?? 'file').toString(),
+              'fileUrl': fileUrl,
+            };
+          })
+          .whereType<Map<String, String>>()
+          .toList();
     }
     return null;
   }

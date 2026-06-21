@@ -1,17 +1,11 @@
 // lib/screens/community/comments_screen.dart
-//
-// Changes:
-//  1. _CommentCard: shows delete (trash) icon ONLY if comment.userId == currentUserId.
-//  2. Delete shows confirmation dialog, then calls cubit.deleteComment.
-//  3. Invalid commentId ("0" or empty) shows error snackbar, skips API.
-//  4. Pull-to-refresh added to comment list.
-//  5. "Only Me" removed from visibility (handled in create_post_screen.dart).
 
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:onboard/cubits/auth/auth_cubit.dart';
+import 'package:onboard/cubits/chat/chat_cubit.dart';
 import 'package:onboard/cubits/community/community_comments_cubit.dart';
 import 'package:onboard/cubits/community/community_cubit.dart';
 import 'package:onboard/cubits/community/community_state.dart';
@@ -19,6 +13,7 @@ import 'package:onboard/models/CommunityModels/post_model.dart';
 import 'package:onboard/repositories/mock_community_repository.dart';
 import 'package:onboard/repositories/api_community_repository.dart';
 import 'package:onboard/models/CommunityModels/community_comment_model.dart';
+import 'package:onboard/screens/chatScreens/chat_screen.dart';
 
 class CommentsScreen extends StatefulWidget {
   final PostModel post;
@@ -34,12 +29,14 @@ class _CommentsScreenState extends State<CommentsScreen> {
   String? _replyingToName;
   String? _replyingToCommentId;
 
-  // ✅ Read real values from AuthCubit
   String get _currentUserId =>
       context.read<AuthCubit>().state.userModel?.uid ?? '';
 
   String get _currentUserName =>
       context.read<AuthCubit>().state.userModel?.fullName ?? '';
+
+  String get _currentUserPhotoUrl =>
+      context.read<AuthCubit>().state.userModel?.photoUrl ?? '';
 
   @override
   void dispose() {
@@ -69,10 +66,8 @@ class _CommentsScreenState extends State<CommentsScreen> {
     _focusNode.unfocus();
   }
 
-  // ✅ Delete confirmation dialog
   void _confirmDeleteComment(
       BuildContext context, CommunityCommentsCubit cubit, String commentId) {
-    // Guard: invalid id
     if (commentId.isEmpty || commentId == '0' || commentId.startsWith('temp_')) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -105,7 +100,6 @@ class _CommentsScreenState extends State<CommentsScreen> {
                 commentId: commentId,
                 userId: _currentUserId,
               );
-              // Decrement comment count in CommunityCubit
               try {
                 context.read<CommunityCubit>().decrementCommentCount(widget.post.id);
               } catch (_) {}
@@ -210,7 +204,6 @@ class _CommentsScreenState extends State<CommentsScreen> {
                         );
                       }
 
-                      // ✅ Pull-to-refresh wrapping the comment list
                       return RefreshIndicator(
                         onRefresh: () => context
                             .read<CommunityCommentsCubit>()
@@ -468,7 +461,6 @@ class _CommentsScreenState extends State<CommentsScreen> {
     String text = _commentController.text.trim();
     if (text.isEmpty) return;
 
-    // Strip the @mention prefix — send only the actual reply content
     if (_replyingToName != null) {
       final mention = '@$_replyingToName';
       if (text.startsWith(mention)) {
@@ -483,6 +475,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
         : (FirebaseAuth.instance.currentUser?.displayName ?? '');
     final replyToCommentId = _replyingToCommentId;
     final replyToName = _replyingToName;
+    final userPhotoUrl = _currentUserPhotoUrl;
 
     print('💬 [COMMENT] userId: $userId  userName: $userName  replyTo: $replyToCommentId  content: $text');
 
@@ -500,6 +493,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
           userName: userName,
           replyToCommentId: replyToCommentId,
           replyToName: replyToName,
+          userPhotoUrl: userPhotoUrl,
         );
 
     try {
@@ -508,9 +502,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
   }
 }
 
-// ─────────────────────────────────────────────
-// Comment Card — with nested replies + delete button
-// ─────────────────────────────────────────────
+// ─── Comment Card ──────────────────────────────────────────────
 class _CommentCard extends StatelessWidget {
   final CommunityCommentModel comment;
   final String currentUserId;
@@ -530,15 +522,56 @@ class _CommentCard extends StatelessWidget {
     this.onDeleteReply,
   });
 
-  // Ownership: match by userId if available, else match by userName
   bool get _isOwner {
     if (comment.userId.isNotEmpty && currentUserId.isNotEmpty) {
       return comment.userId == currentUserId;
     }
-    // Fallback: userName match (API doesn't return userId on GET comments)
     return currentUserName.isNotEmpty &&
         comment.userName.isNotEmpty &&
         comment.userName.toLowerCase() == currentUserName.toLowerCase();
+  }
+
+  // ✅ دالة الانتقال إلى الشات – تبحث عن userId إذا لم يكن موجوداً
+  void _goToChat(BuildContext context) async {
+    // إذا كان userId موجوداً، استخدمه مباشرة
+    if (comment.userId.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(
+            otherUserId: comment.userId,
+            otherUserName: comment.userName,
+            otherUserPhoto: comment.userPhotoUrl,
+          ),
+        ),
+      );
+      return;
+    }
+
+    // إذا لم يكن userId موجوداً، حاول البحث بالاسم
+    final chatCubit = context.read<ChatCubit>();
+    final foundUserId = await chatCubit.findUserIdByName(comment.userName);
+    if (foundUserId != null && context.mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(
+            otherUserId: foundUserId,
+            otherUserName: comment.userName,
+            otherUserPhoto: comment.userPhotoUrl,
+          ),
+        ),
+      );
+    } else {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not find user to chat with.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -553,17 +586,10 @@ class _CommentCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Main comment header ──
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: const Color(0xFFDBEAFE),
-                child: Text(comment.userInitial,
-                    style: const TextStyle(
-                        color: Color(0xFF155DFC), fontSize: 12)),
-              ),
+              _buildAvatar(comment),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -578,7 +604,18 @@ class _CommentCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // ✅ Delete button — only if this is the current user's comment
+              // ✅ أيقونة الرسالة تظهر دائماً
+              GestureDetector(
+                onTap: () => _goToChat(context),
+                child: const Padding(
+                  padding: EdgeInsets.only(right: 4),
+                  child: Icon(
+                    Icons.message_outlined,
+                    size: 18,
+                    color: Color(0xFF155DFC),
+                  ),
+                ),
+              ),
               if (_isOwner)
                 GestureDetector(
                   onTap: onDelete,
@@ -596,7 +633,6 @@ class _CommentCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(comment.content, style: const TextStyle(fontSize: 14)),
           const SizedBox(height: 8),
-          // ── Like + Reply actions ──
           Row(
             children: [
               GestureDetector(
@@ -632,7 +668,6 @@ class _CommentCard extends StatelessWidget {
               ),
             ],
           ),
-          // ── Nested replies inside the same card ──
           if (comment.replies.isNotEmpty) ...[
             const SizedBox(height: 10),
             Container(height: 1, color: const Color(0xFFF0F0F0)),
@@ -647,11 +682,38 @@ class _CommentCard extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildAvatar(CommunityCommentModel comment) {
+    final photo = comment.userPhotoUrl;
+    if (photo != null && photo.isNotEmpty) {
+      return CircleAvatar(
+        radius: 16,
+        backgroundImage: NetworkImage(photo),
+        onBackgroundImageError: (_, __) => _fallbackAvatar(comment.userInitial),
+        child: null,
+      );
+    } else {
+      return _fallbackAvatar(comment.userInitial);
+    }
+  }
+
+  Widget _fallbackAvatar(String initial) {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: const ShapeDecoration(
+        color: Color(0xFFDBEAFE),
+        shape: CircleBorder(),
+      ),
+      child: Center(
+        child: Text(initial,
+            style: const TextStyle(color: Color(0xFF155DFC), fontSize: 12)),
+      ),
+    );
+  }
 }
 
-// ─────────────────────────────────────────────
-// Reply Bubble — indented, inside parent card
-// ─────────────────────────────────────────────
+// ─── Reply Bubble ──────────────────────────────────────────────
 class _ReplyBubble extends StatelessWidget {
   final CommunityCommentModel reply;
   final String currentUserId;
@@ -665,7 +727,6 @@ class _ReplyBubble extends StatelessWidget {
     required this.onDeleteReply,
   });
 
-  // Ownership: match by userId if available, else match by userName
   bool get _isOwner {
     if (reply.userId.isNotEmpty && currentUserId.isNotEmpty) {
       return reply.userId == currentUserId;
@@ -675,6 +736,46 @@ class _ReplyBubble extends StatelessWidget {
         reply.userName.toLowerCase() == currentUserName.toLowerCase();
   }
 
+  void _goToChat(BuildContext context) async {
+    if (reply.userId.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(
+            otherUserId: reply.userId,
+            otherUserName: reply.userName,
+            otherUserPhoto: reply.userPhotoUrl,
+          ),
+        ),
+      );
+      return;
+    }
+
+    final chatCubit = context.read<ChatCubit>();
+    final foundUserId = await chatCubit.findUserIdByName(reply.userName);
+    if (foundUserId != null && context.mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(
+            otherUserId: foundUserId,
+            otherUserName: reply.userName,
+            otherUserPhoto: reply.userPhotoUrl,
+          ),
+        ),
+      );
+    } else {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not find user to chat with.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -682,7 +783,6 @@ class _ReplyBubble extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Indent line
           Container(
             width: 2,
             height: 36,
@@ -692,13 +792,7 @@ class _ReplyBubble extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          CircleAvatar(
-            radius: 13,
-            backgroundColor: const Color(0xFFDBEAFE),
-            child: Text(reply.userInitial,
-                style: const TextStyle(
-                    color: Color(0xFF155DFC), fontSize: 11)),
-          ),
+          _buildAvatar(reply),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -722,7 +816,18 @@ class _ReplyBubble extends StatelessWidget {
                         ],
                       ),
                     ),
-                    // ✅ Delete for own replies
+                    // ✅ أيقونة الرسالة تظهر دائماً للردود
+                    GestureDetector(
+                      onTap: () => _goToChat(context),
+                      child: const Padding(
+                        padding: EdgeInsets.only(right: 4),
+                        child: Icon(
+                          Icons.message_outlined,
+                          size: 16,
+                          color: Color(0xFF155DFC),
+                        ),
+                      ),
+                    ),
                     if (_isOwner)
                       GestureDetector(
                         onTap: onDeleteReply,
@@ -745,11 +850,38 @@ class _ReplyBubble extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildAvatar(CommunityCommentModel comment) {
+    final photo = comment.userPhotoUrl;
+    if (photo != null && photo.isNotEmpty) {
+      return CircleAvatar(
+        radius: 13,
+        backgroundImage: NetworkImage(photo),
+        onBackgroundImageError: (_, __) => _fallbackAvatar(comment.userInitial),
+        child: null,
+      );
+    } else {
+      return _fallbackAvatar(comment.userInitial);
+    }
+  }
+
+  Widget _fallbackAvatar(String initial) {
+    return Container(
+      width: 26,
+      height: 26,
+      decoration: const ShapeDecoration(
+        color: Color(0xFFDBEAFE),
+        shape: CircleBorder(),
+      ),
+      child: Center(
+        child: Text(initial,
+            style: const TextStyle(color: Color(0xFF155DFC), fontSize: 10)),
+      ),
+    );
+  }
 }
 
-// ─────────────────────────────────────────────
-// Post Attachment — network / local / fallback
-// ─────────────────────────────────────────────
+// ─── Post Attachment ───────────────────────────────────────────
 class _PostAttachment extends StatelessWidget {
   final String attachmentName;
   const _PostAttachment({required this.attachmentName});

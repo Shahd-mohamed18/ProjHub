@@ -1,10 +1,10 @@
 // lib/widgets/community/post_card.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:onboard/models/CommunityModels/post_model.dart';
+import 'package:onboard/screens/chatScreens/chat_screen.dart';
 
-// ✅ PostCard لا يعدل على الـ Model مباشرة
-// الـ Like callback يرجع للـ Screen/Cubit
 class PostCard extends StatelessWidget {
   final PostModel post;
   final VoidCallback onTap;
@@ -18,6 +18,20 @@ class PostCard extends StatelessWidget {
     this.onCommentTap,
     this.onLike,
   });
+
+  // ✅ دالة للانتقال إلى شاشة المحادثة مع صاحب المنشور
+  void _goToChat(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          otherUserId: post.userId,
+          otherUserName: post.userName,
+          otherUserPhoto: post.userPhotoUrl,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +49,7 @@ class PostCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildUserRow(),
+            _buildUserRow(context),
             const SizedBox(height: 12),
             Text(post.content, style: const TextStyle(fontSize: 14)),
             const SizedBox(height: 8),
@@ -54,10 +68,13 @@ class PostCard extends StatelessWidget {
     );
   }
 
-  Widget _buildUserRow() {
+  Widget _buildUserRow(BuildContext context) {
     return Row(
       children: [
-        _CommunityAvatar(initial: post.userInitial),
+        _CommunityAvatar(
+          initial: post.userInitial,
+          photoUrl: post.userPhotoUrl,
+        ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -70,7 +87,6 @@ class PostCard extends StatelessWidget {
             ],
           ),
         ),
-        // Visibility badge
         if (post.visibility != PostVisibility.public)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -89,6 +105,16 @@ class PostCard extends StatelessWidget {
               ],
             ),
           ),
+        // ✅ أيقونة الرسالة
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: () => _goToChat(context),
+          child: const Icon(
+            Icons.message_outlined,
+            size: 20,
+            color: Color(0xFF155DFC),
+          ),
+        ),
       ],
     );
   }
@@ -208,23 +234,44 @@ class PostCard extends StatelessWidget {
   }
 }
 
-// ✅ Reusable Avatar - بتستخدمه PostCard و CommentsScreen
+// ✅ Reusable Avatar – بتستخدمه PostCard و CommentsScreen
 class CommunityAvatar extends StatelessWidget {
   final String initial;
-  const CommunityAvatar({super.key, required this.initial});
+  final String? photoUrl;
+
+  const CommunityAvatar({super.key, required this.initial, this.photoUrl});
 
   @override
   Widget build(BuildContext context) {
-    return _CommunityAvatar(initial: initial);
+    return _CommunityAvatar(initial: initial, photoUrl: photoUrl);
   }
 }
 
+// ✅ Avatar الداخلي اللي بيظهر الصورة لو موجودة
 class _CommunityAvatar extends StatelessWidget {
   final String initial;
-  const _CommunityAvatar({required this.initial});
+  final String? photoUrl;
+
+  const _CommunityAvatar({
+    required this.initial,
+    this.photoUrl,
+  });
 
   @override
   Widget build(BuildContext context) {
+    if (photoUrl != null && photoUrl!.isNotEmpty) {
+      return CircleAvatar(
+        radius: 20,
+        backgroundImage: NetworkImage(photoUrl!),
+        onBackgroundImageError: (_, __) => _fallbackAvatar(),
+        child: null,
+      );
+    } else {
+      return _fallbackAvatar();
+    }
+  }
+
+  Widget _fallbackAvatar() {
     return Container(
       width: 40,
       height: 40,

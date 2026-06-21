@@ -44,9 +44,29 @@ class _TasksScreenState extends State<TasksScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // ⚠️ Previously this called loadTasks() with NO teamId, which meant
+    // getTeamTasks() always returned [] (it bails out immediately when
+    // teamId is null/empty — see ApiTaskRepository.getTeamTasks).
+    // We still do an initial load so pending/completed tasks show up
+    // right away even before the team is resolved, then reload with the
+    // real teamId once TeamsCubit has it (mirrors _tryLoadAnnouncements).
     _tasksCubit = TasksCubit(ApiTaskRepository())..loadTasks();
     _announcementCubit = AnnouncementCubit();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _tryLoadAnnouncements());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _tryLoadAnnouncements();
+      _tryReloadTasksWithTeam();
+    });
+  }
+
+  /// Reloads tasks once the user's team is known so `teamId` can be
+  /// passed through to `getTeamTasks`. Safe to call multiple times —
+  /// TasksCubit.loadTasks just re-fetches.
+  void _tryReloadTasksWithTeam() {
+    if (!mounted) return;
+    final teamsState = context.read<TeamsCubit>().state;
+    if (teamsState is! TeamsLoaded || teamsState.teams.isEmpty) return;
+    final teamId = teamsState.teams.first.id;
+    _tasksCubit.loadTasks(teamId: teamId);
   }
 
   @override
@@ -265,6 +285,10 @@ class _TasksScreenState extends State<TasksScreen>
             listenWhen: (p, c) => c is TeamsLoaded,
             listener: (ctx, teamsState) {
               if (!_announcementLoaded) _tryLoadAnnouncements();
+              // Team data may arrive after our initial loadTasks() call
+              // (which had no teamId yet) — reload now that it's here so
+              // getTeamTasks() actually gets a real teamId.
+              _tryReloadTasksWithTeam();
             },
             builder: (ctx, _) {
               return BlocConsumer<AnnouncementCubit, AnnouncementState>(

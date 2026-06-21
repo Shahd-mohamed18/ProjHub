@@ -29,6 +29,7 @@ class MockCommunityRepository implements ICommunityRepository {
     required String userName,
     required String userInitial,
     String? attachmentName,
+    String? teamId, // ✅ NEW
   }) async {
     await Future.delayed(const Duration(milliseconds: 500));
     final newPost = PostModel(
@@ -45,6 +46,7 @@ class MockCommunityRepository implements ICommunityRepository {
       attachmentName: attachmentName,
       visibility: visibility,
       likedByUserIds: const [],
+      teamId: teamId, // ✅ NEW
     );
     _posts.insert(0, newPost);
     return newPost;

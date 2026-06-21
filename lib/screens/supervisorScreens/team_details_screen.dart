@@ -2,6 +2,7 @@
 //
 // ✅ Supervisor creates posts/announcements from the Task screen (Post tab
 //    in CreateTaskScreen). The "+ Post" button has been removed from here.
+// ✅ Fixed: Total Tasks now shows the actual number of tasks for this team.
 
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -37,6 +38,7 @@ class TeamDetailsScreen extends StatefulWidget {
 class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
   late TeamModel _team;
   bool _isLoading = false;
+  int _taskCount = 0; // ✅ real task count for this team
   late final AnnouncementCubit _announcementCubit;
 
   @override
@@ -45,6 +47,7 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
     _team = widget.team;
     _announcementCubit = AnnouncementCubit();
     _fetchTeamDetails();
+    _fetchTasksCount(); // ✅ fetch real task count
   }
 
   @override
@@ -71,7 +74,25 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
     }
   }
 
-  Future<void> _refreshTeamDetails() => _fetchTeamDetails();
+  /// ✅ Fetch the actual number of tasks for this team
+  Future<void> _fetchTasksCount() async {
+    try {
+      final tasks = await ApiTaskRepository().getTeamTasks(teamId: _team.id);
+      if (mounted) {
+        setState(() {
+          _taskCount = tasks.length;
+        });
+      }
+    } catch (e) {
+      print('⚠️ Error fetching tasks count: $e');
+      // Keep _taskCount as 0 on error
+    }
+  }
+
+  Future<void> _refreshTeamDetails() async {
+    await _fetchTeamDetails();
+    await _fetchTasksCount(); // ✅ refresh task count too
+  }
 
   // ── Add Task / Post ───────────────────────────────────────────────────────────
 
@@ -392,7 +413,7 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            '${_team.activeProjects * 3}',
+            '$_taskCount', // ✅ real task count
             textAlign: TextAlign.center,
             style: const TextStyle(
                 color: Color(0xFF155CFB),

@@ -5,7 +5,6 @@ class FeedbackModel {
   final String from;
   final String message;
   final DateTime date;
-  final List<AttachmentModel> attachments;
 
   FeedbackModel({
     required this.id,
@@ -13,7 +12,6 @@ class FeedbackModel {
     required this.from,
     required this.message,
     required this.date,
-    required this.attachments,
   });
 
   String get formattedDate {
@@ -42,16 +40,6 @@ class FeedbackModel {
       } catch (_) {}
     }
 
-    // Parse attachments safely
-    List<AttachmentModel> attachments = [];
-    final rawAttachments =
-        json['attachments'] ?? json['feedbackAttachments'];
-    if (rawAttachments is List) {
-      attachments = rawAttachments
-          .map((a) => AttachmentModel.fromJson(a as Map<String, dynamic>))
-          .toList();
-    }
-
     return FeedbackModel(
       id: (json['id'] ?? json['feedbackId'] ?? '').toString(),
       taskId: (json['taskId'] ?? json['task_id'] ?? '').toString(),
@@ -66,7 +54,6 @@ class FeedbackModel {
               '')
           .toString(),
       date: parsedDate,
-      attachments: attachments,
     );
   }
 
@@ -77,7 +64,6 @@ class FeedbackModel {
       'from': from,
       'message': message,
       'date': date.toIso8601String(),
-      'attachments': attachments.map((a) => a.toJson()).toList(),
     };
   }
 
@@ -88,10 +74,6 @@ class FeedbackModel {
       from: 'Supervisor',
       message: 'Good work on project structure. Setup is perfect.',
       date: DateTime(2026, 1, 15),
-      attachments: [
-        AttachmentModel(name: 'Wireframe.fig', type: 'FIG'),
-        AttachmentModel(name: 'Documentation', type: 'PDF'),
-      ],
     ),
     FeedbackModel(
       id: '2',
@@ -99,23 +81,6 @@ class FeedbackModel {
       from: 'Assistant',
       message: 'Excellent documentation.',
       date: DateTime(2026, 2, 20),
-      attachments: [],
     ),
   ];
-}
-
-class AttachmentModel {
-  final String name;
-  final String type;
-
-  AttachmentModel({required this.name, required this.type});
-
-  Map<String, dynamic> toJson() => {'name': name, 'type': type};
-
-  factory AttachmentModel.fromJson(Map<String, dynamic> json) {
-    return AttachmentModel(
-      name: (json['name'] ?? json['fileName'] ?? '').toString(),
-      type: (json['type'] ?? json['fileType'] ?? 'file').toString(),
-    );
-  }
 }

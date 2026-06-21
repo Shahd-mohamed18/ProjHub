@@ -129,17 +129,15 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     }).toList();
 
     context.read<SupervisorTaskCubit>().createTask(
-          title: _titleController.text.trim(),
-          description: _descController.text.trim(),
-          dueDate: _selectedDate!,
-          assignedTo: assignedTo,
-          teamId: teamId,
-          attachment:
-              _selectedFiles.isNotEmpty ? _selectedFiles.first.name : null,
-          supervisorAttachments: attachments,
-          supervisorName: widget.supervisorName,
-        );
-  }
+        title: _titleController.text.trim(),
+        description: _descController.text.trim(),
+        dueDate: _selectedDate!,
+        assignedTo: assignedTo,
+        teamId: teamId,
+        supervisorFiles: _selectedFiles,
+        supervisorName: widget.supervisorName,
+      );
+}
 
   void _snack(String msg) {
     ScaffoldMessenger.of(context)
